@@ -409,6 +409,19 @@ export async function variantesDeProducto(productoId: number) {
   return rows.filter((r) => r.productoId === productoId);
 }
 
+// Unidades vendidas de cada variante en los últimos N días (sin contar lo devuelto). Para ordenar el TPV.
+export async function unidadesVendidas(dias = 30) {
+  const rows = await filas<{ varianteId: number; unidades: number }>(sql`
+    select l.variante_id as "varianteId", sum(l.cantidad - coalesce(dl.cantidad, 0))::int as unidades
+    from lineas_venta l
+    join ventas ve on ve.id = l.venta_id and not ve.anulada
+    left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
+    where ve.fecha > now() - make_interval(days => ${dias}::int)
+    group by l.variante_id
+  `);
+  return new Map(rows.map((r) => [r.varianteId, r.unidades]));
+}
+
 // Unidades vendidas por sabor de un producto en los últimos N días
 export async function ventasPorVariante(productoId: number, dias = 30) {
   const rows = await filas<{ varianteId: number; unidades: number; total: string; coste: string }>(sql`

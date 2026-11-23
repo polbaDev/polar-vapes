@@ -1,12 +1,13 @@
 import "server-only";
-import { listarVariantes } from "@/lib/queries";
+import { listarVariantes, unidadesVendidas } from "@/lib/queries";
 import type { VarianteLigera } from "@/components/buscador";
 
 // Lista compacta de productos activos para las pantallas de venta y compra
 export async function variantesLigeras(): Promise<VarianteLigera[]> {
-  const rows = await listarVariantes();
+  const [rows, vendidas] = await Promise.all([listarVariantes(), unidadesVendidas(30)]);
   return rows.map((v) => ({
     id: v.id,
+    productoId: v.productoId,
     marca: v.marca,
     modelo: v.modelo,
     sabor: v.sabor,
@@ -17,5 +18,6 @@ export async function variantesLigeras(): Promise<VarianteLigera[]> {
     codigo: v.codigoBarras,
     imagenId: v.imagenId,
     color: v.color,
+    vendidas: vendidas.get(v.id) ?? 0,
   }));
 }

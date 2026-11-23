@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { crearCompra } from "@/lib/actions/stock";
-import { filtrarVariantes, porCodigo, type VarianteLigera } from "./buscador";
+import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
+import { BotonCamara, Escaner, useCamaraDisponible } from "./escaner";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
@@ -47,6 +48,8 @@ export function FormCompra({
   const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
+  const [escaneando, setEscaneando] = useState(false);
+  const camara = useCamaraDisponible();
 
   const porId = useMemo(() => new Map(variantes.map((v) => [v.id, v])), [variantes]);
   const resultados = useMemo(() => (q.trim() ? filtrarVariantes(variantes, q, 12) : []), [variantes, q]);
@@ -67,6 +70,20 @@ export function FormCompra({
     ]);
     setQ("");
     setError(null);
+  }
+
+  // Con la cámara: si el producto ya está en la compra, suma una unidad a esa línea
+  function leerCodigo(codigo: string) {
+    const v = porCodigo(variantes, codigo);
+    if (!v) return `No está en el catálogo: ${codigo}`;
+    const existente = lineas.find((l) => l.varianteId === v.id);
+    if (existente) {
+      const n = (Number.isInteger(aNumero(existente.cantidad)) ? aNumero(existente.cantidad) : 0) + 1;
+      editar(existente.key, "cantidad", String(n));
+      return `${v.sabor}: ${n} uds.`;
+    }
+    anadir(v);
+    return `Añadido: ${v.sabor} (${nombreModelo(v)})`;
   }
 
   function editar(key: number, campo: keyof Linea, valor: string) {
@@ -145,7 +162,7 @@ export function FormCompra({
 
       <section className="tarjeta overflow-visible">
         <div className="border-b border-zinc-200 p-4">
-          <div className="relative">
+          <div className="relative flex gap-2">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -154,6 +171,7 @@ export function FormCompra({
               className="campo"
               aria-label="Buscar producto para añadir"
             />
+            {camara && <BotonCamara onClick={() => setEscaneando(true)} />}
             {resultados.length > 0 && (
               <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-80 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
                 {resultados.map((v) => (
@@ -302,6 +320,7 @@ export function FormCompra({
           Cancelar
         </Link>
       </div>
+      {escaneando && <Escaner continuo alDetectar={leerCodigo} alCerrar={() => setEscaneando(false)} />}
     </div>
   );
 }

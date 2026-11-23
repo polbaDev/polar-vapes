@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { crearVenta } from "@/lib/actions/stock";
-import { filtrarVariantes, porCodigo, type VarianteLigera } from "./buscador";
+import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
+import { BotonCamara, Escaner, useCamaraDisponible } from "./escaner";
 import { Foto } from "./foto";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
@@ -12,6 +13,8 @@ const PAGOS = [
   { value: "tarjeta", label: "Tarjeta" },
   { value: "bizum", label: "Bizum" },
 ];
+// Sin buscar, se enseñan los más vendidos hasta este número
+const MAX_TODOS = 60;
 
 type Linea = { id: number; cantidad: number };
 
@@ -20,8 +23,26 @@ function aNumero(s: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function aTexto(n: number) {
+  return n.toFixed(2).replace(".", ",");
+}
+
+const vendible = (v: VarianteLigera) => v.stock > 0 && v.precio > 0;
+
+// Importes típicos que te puede dar el cliente: el justo y el siguiente billete redondo
+function entregasRapidas(total: number) {
+  if (total <= 0) return [];
+  const opciones = new Set([Math.round(total * 100) / 100]);
+  for (const paso of [5, 10, 20, 50, 100]) {
+    const r = Math.ceil(total / paso) * paso;
+    if (r > total) opciones.add(r);
+  }
+  return [...opciones].sort((a, b) => a - b).slice(0, 4);
+}
+
 export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   const [q, setQ] = useState("");
+  const [producto, setProducto] = useState<number | null>(null);
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [pago, setPago] = useState("efectivo");
   const [descuento, setDescuento] = useState("");
@@ -30,6 +51,8 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   const [error, setError] = useState<string | null>(null);
   const [hecho, setHecho] = useState<{ id: number; total: number; cambio: number | null } | null>(null);
   const [pendiente, startTransition] = useTransition();
+  const [escaneando, setEscaneando] = useState(false);
+  const camara = useCamaraDisponible();
   const buscador = useRef<HTMLInputElement>(null);
   const ticketRef = useRef<HTMLDivElement>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
@@ -44,7 +67,29 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   }, []);
 
   const porId = useMemo(() => new Map(variantes.map((v) => [v.id, v])), [variantes]);
-  const resultados = useMemo(() => filtrarVariantes(variantes, q, 30), [variantes, q]);
+
+  // Modelos para los botones de filtro, los que más se venden primero
+  const productos = useMemo(() => {
+    const m = new Map<number, { id: number; nombre: string; vendidas: number }>();
+    for (const v of variantes) {
+      const p = m.get(v.productoId) ?? { id: v.productoId, nombre: nombreModelo(v), vendidas: 0 };
+      p.vendidas += v.vendidas;
+      m.set(v.productoId, p);
+    }
+    return [...m.values()].sort((a, b) => b.vendidas - a.vendidas || a.nombre.localeCompare(b.nombre, "es"));
+  }, [variantes]);
+
+  const { resultados, recortados } = useMemo(() => {
+    // Lo que se puede vender va primero; el orden es estable, así que dentro se respeta el de la lista
+    const primeroVendibles = (l: VarianteLigera[]) => [...l].sort((a, b) => Number(vendible(b)) - Number(vendible(a)));
+    if (q.trim()) return { resultados: primeroVendibles(filtrarVariantes(variantes, q, 40)), recortados: false };
+    if (producto !== null) {
+      const delModelo = variantes.filter((v) => v.productoId === producto);
+      return { resultados: primeroVendibles(delModelo), recortados: false };
+    }
+    const todos = [...variantes].sort((a, b) => Number(vendible(b)) - Number(vendible(a)) || b.vendidas - a.vendidas);
+    return { resultados: todos.slice(0, MAX_TODOS), recortados: todos.length > MAX_TODOS };
+  }, [variantes, q, producto]);
 
   const subtotal = lineas.reduce((s, l) => s + l.cantidad * (porId.get(l.id)?.precio ?? 0), 0);
   const desc = Math.min(Math.max(aNumero(descuento), 0), subtotal);
@@ -56,18 +101,38 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
     return lineas.find((l) => l.id === id)?.cantidad ?? 0;
   }
 
+  // Devuelve el motivo si no se puede añadir
+  function motivoNoAnadir(v: VarianteLigera) {
+    if (v.precio <= 0) return `"${v.sabor}" no tiene precio de venta. Pónselo en Catálogo.`;
+    if (enTicket(v.id) >= v.stock) return v.stock <= 0 ? `No queda stock de "${v.sabor}".` : `De "${v.sabor}" solo hay ${v.stock}.`;
+    return null;
+  }
+
   function anadir(v: VarianteLigera) {
     setHecho(null);
-    setError(null);
-    if (enTicket(v.id) >= v.stock) {
-      setError(`De "${v.marca} ${v.modelo} ${v.sabor}" solo hay ${v.stock}.`);
-      return;
+    const motivo = motivoNoAnadir(v);
+    if (motivo) {
+      setError(motivo);
+      return false;
     }
+    setError(null);
     setLineas((ls) =>
       ls.some((l) => l.id === v.id) ? ls.map((l) => (l.id === v.id ? { ...l, cantidad: l.cantidad + 1 } : l)) : [...ls, { id: v.id, cantidad: 1 }],
     );
     setQ("");
-    buscador.current?.focus();
+    if (!escaneando) buscador.current?.focus();
+    return true;
+  }
+
+  function leerCodigo(codigo: string) {
+    const v = porCodigo(variantes, codigo);
+    if (!v) {
+      setError(`El código ${codigo} no está en el catálogo. Puedes añadírselo al sabor en Catálogo.`);
+      return `No está en el catálogo: ${codigo}`;
+    }
+    const motivo = motivoNoAnadir(v);
+    anadir(v);
+    return motivo ?? `Añadido: ${v.sabor} (${nombreModelo(v)})`;
   }
 
   function cambiarCantidad(id: number, delta: number) {
@@ -84,10 +149,17 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   function onEnter(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    // Los lectores de códigos USB/Bluetooth escriben el código y pulsan Intro
     const exacto = porCodigo(variantes, q);
-    if (exacto) return anadir(exacto);
-    const disponibles = resultados.filter((r) => r.stock > 0);
+    if (exacto) return void anadir(exacto);
+    const disponibles = resultados.filter(vendible);
     if (disponibles.length === 1) anadir(disponibles[0]);
+  }
+
+  function vaciar() {
+    if (unidades > 2 && !window.confirm("¿Vaciar el ticket?")) return;
+    setLineas([]);
+    setError(null);
   }
 
   function cobrar() {
@@ -118,16 +190,53 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="min-w-0">
-        <input
-          ref={buscador}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={onEnter}
-          autoFocus
-          placeholder="Buscar marca, sabor… o escanear código"
-          className="campo py-3 text-base"
-          aria-label="Buscar producto"
-        />
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <input
+              ref={buscador}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onEnter}
+              autoFocus
+              placeholder="Buscar marca, sabor… o escanear código"
+              className="campo py-3 pr-10 text-base"
+              aria-label="Buscar producto"
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  buscador.current?.focus();
+                }}
+                className="absolute inset-y-0 right-0 px-3 text-zinc-400 hover:text-zinc-700"
+                aria-label="Borrar búsqueda"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {camara && <BotonCamara onClick={() => setEscaneando(true)} />}
+        </div>
+
+        {productos.length > 1 && !q.trim() && (
+          <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filtrar por modelo">
+            {[{ id: null, nombre: "Más vendidos" }, ...productos].map((p) => (
+              <button
+                key={p.id ?? "todos"}
+                type="button"
+                onClick={() => setProducto(p.id)}
+                aria-pressed={producto === p.id}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ${
+                  producto === p.id ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-100"
+                }`}
+              >
+                {p.nombre}
+              </button>
+            ))}
+          </div>
+        )}
+
         {hecho && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
             <span>
@@ -144,38 +253,46 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
             No hay productos activos. Créalos en <Link href="/catalogo" className="enlace">Catálogo</Link>.
           </p>
         ) : (
-          <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {resultados.map((v) => {
-              const quedan = v.stock - enTicket(v.id);
-              return (
-                <li key={v.id}>
-                  <button
-                    type="button"
-                    onClick={() => anadir(v)}
-                    disabled={quedan <= 0}
-                    className="tarjeta flex w-full items-center gap-3 p-2 pr-3 text-left transition hover:border-marca-200 hover:bg-marca-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white"
-                  >
-                    <Foto id={v.imagenId} color={v.color} alt="" texto={v.sabor} className="h-14 w-14 shrink-0 rounded-lg" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{v.sabor}</span>
-                      <span className="block truncate text-xs text-zinc-500">
-                        {v.marca} {v.modelo} · {v.nicotinaMg} mg
+          <>
+            <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {resultados.map((v) => {
+                const quedan = v.stock - enTicket(v.id);
+                const sinPrecio = v.precio <= 0;
+                return (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      onClick={() => anadir(v)}
+                      disabled={quedan <= 0 || sinPrecio}
+                      className="tarjeta flex w-full items-center gap-3 p-2 pr-3 text-left transition hover:border-marca-200 hover:bg-marca-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white"
+                    >
+                      <Foto id={v.imagenId} color={v.color} alt="" texto={v.sabor} className="h-14 w-14 shrink-0 rounded-lg" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{v.sabor}</span>
+                        <span className="block truncate text-xs text-zinc-500">
+                          {nombreModelo(v)} · {v.nicotinaMg} mg
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className={`block font-semibold tabular-nums ${v.precio > 0 ? "" : "text-amber-700"}`}>
-                        {v.precio > 0 ? eur.format(v.precio) : "sin precio"}
+                      <span className="shrink-0 text-right">
+                        <span className={`block font-semibold tabular-nums ${sinPrecio ? "text-amber-700" : ""}`}>
+                          {sinPrecio ? "sin precio" : eur.format(v.precio)}
+                        </span>
+                        <span className={`block text-xs ${quedan <= 0 ? "text-red-600" : "text-zinc-500"}`}>
+                          {quedan <= 0 ? "sin stock" : `quedan ${quedan}`}
+                        </span>
                       </span>
-                      <span className={`block text-xs ${quedan <= 0 ? "text-red-600" : "text-zinc-500"}`}>
-                        {quedan <= 0 ? "sin stock" : `quedan ${quedan}`}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-            {resultados.length === 0 && <li className="text-sm text-zinc-500">Nada coincide con “{q}”.</li>}
-          </ul>
+                    </button>
+                  </li>
+                );
+              })}
+              {resultados.length === 0 && <li className="text-sm text-zinc-500">Nada coincide con “{q}”.</li>}
+            </ul>
+            {recortados && (
+              <p className="mt-3 text-center text-xs text-zinc-500">
+                Se muestran los {MAX_TODOS} más vendidos. Busca o elige un modelo para ver el resto.
+              </p>
+            )}
+          </>
         )}
       </section>
 
@@ -184,7 +301,7 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
             <h2 className="font-semibold">Ticket</h2>
             {lineas.length > 0 && (
-              <button type="button" onClick={() => setLineas([])} className="text-sm text-zinc-500 hover:text-zinc-800">
+              <button type="button" onClick={vaciar} className="text-sm text-zinc-500 hover:text-zinc-800">
                 Vaciar
               </button>
             )}
@@ -202,7 +319,7 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{v.sabor}</div>
                       <div className="truncate text-xs text-zinc-500">
-                        {v.marca} {v.modelo} · {v.nicotinaMg} mg · {eur.format(v.precio)}
+                        {nombreModelo(v)} · {v.nicotinaMg} mg · {eur.format(v.precio)}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -262,21 +379,39 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
             </div>
 
             {pago === "efectivo" && (
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <label htmlFor="entregado" className="text-zinc-500">
-                  Entrega
-                </label>
-                <input
-                  id="entregado"
-                  value={entregado}
-                  onChange={(e) => setEntregado(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  className="campo w-24 py-1 text-right"
-                />
-                <span className={`w-24 text-right tabular-nums ${cambio !== null && cambio < 0 ? "text-red-600" : ""}`}>
-                  {cambio === null ? "" : cambio < 0 ? `faltan ${eur.format(-cambio)}` : `cambio ${eur.format(cambio)}`}
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <label htmlFor="entregado" className="text-zinc-500">
+                    Entrega
+                  </label>
+                  <input
+                    id="entregado"
+                    value={entregado}
+                    onChange={(e) => setEntregado(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    className="campo w-24 py-1 text-right"
+                  />
+                  <span className={`w-24 text-right tabular-nums ${cambio !== null && cambio < 0 ? "text-red-600" : ""}`}>
+                    {cambio === null ? "" : cambio < 0 ? `faltan ${eur.format(-cambio)}` : `cambio ${eur.format(cambio)}`}
+                  </span>
+                </div>
+                {total > 0 && (
+                  <div className="flex gap-1.5" role="group" aria-label="Importe entregado">
+                    {entregasRapidas(total).map((importe, i) => (
+                      <button
+                        key={importe}
+                        type="button"
+                        onClick={() => setEntregado(aTexto(importe))}
+                        className={`flex-1 rounded-md border py-1.5 text-sm font-medium tabular-nums transition ${
+                          aNumero(entregado) === importe ? "border-marca-500 bg-marca-50 text-marca-700" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                        }`}
+                      >
+                        {i === 0 ? "Justo" : `${importe} €`}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -298,7 +433,7 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
         </div>
       </aside>
 
-      {lineas.length > 0 && !ticketVisible && (
+      {lineas.length > 0 && !ticketVisible && !escaneando && (
         <button
           type="button"
           onClick={() => ticketRef.current?.scrollIntoView({ behavior: "smooth" })}
@@ -308,6 +443,8 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
           <span className="font-semibold tabular-nums">{eur.format(total)} →</span>
         </button>
       )}
+
+      {escaneando && <Escaner continuo alDetectar={leerCodigo} alCerrar={() => setEscaneando(false)} />}
     </div>
   );
 }

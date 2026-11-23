@@ -1,4 +1,5 @@
 import { CATEGORIAS_SABOR, TIPOS_PRODUCTO } from "@/lib/constants";
+import { CampoCodigoBarras } from "./escaner";
 
 type Marca = { id: number; nombre: string };
 
@@ -184,7 +185,7 @@ export function CamposVariante({
         <label className="etiqueta" htmlFor={`codigo${idSufijo}`}>
           Código de barras <span className="font-normal text-zinc-400">(opcional)</span>
         </label>
-        <input id={`codigo${idSufijo}`} name="codigo_barras" className="campo" defaultValue={valores?.codigoBarras ?? ""} />
+        <CampoCodigoBarras id={`codigo${idSufijo}`} defaultValue={valores?.codigoBarras ?? ""} />
       </div>
     </div>
   );

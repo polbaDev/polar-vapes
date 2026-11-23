@@ -1,5 +1,6 @@
 export type VarianteLigera = {
   id: number;
+  productoId: number;
   marca: string;
   modelo: string;
   sabor: string;
@@ -10,7 +11,14 @@ export type VarianteLigera = {
   codigo: string | null;
   imagenId: number | null;
   color: string | null;
+  // Unidades vendidas en los últimos 30 días
+  vendidas: number;
 };
+
+// «Razz Bar» + «60K» → «Razz Bar 60K»; si el modelo ya lleva la marca («Elf Bar 600»), no se repite
+export function nombreModelo(v: { marca: string; modelo: string }) {
+  return normalizar(v.modelo).startsWith(normalizar(v.marca)) ? v.modelo : `${v.marca} ${v.modelo}`;
+}
 
 export function normalizar(s: string) {
   return s
