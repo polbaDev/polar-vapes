@@ -12,10 +12,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <img src="/icon.svg" alt="" className="h-7 w-7" />
-            <span>Gestión Vapers</span>
+            <span className="hidden sm:inline">Gestión Vapers</span>
           </Link>
           <NavEscritorio />
           <div className="flex items-center gap-1">
+            <Link href="/caja" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 md:hidden">
+              Caja
+            </Link>
             <Link href="/catalogo" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 md:hidden">
               Catálogo
             </Link>

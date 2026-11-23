@@ -2,15 +2,17 @@ import Link from "next/link";
 import { Cabecera, Dato, InsigniaStock, Vacio } from "@/components/ui";
 import { Foto } from "@/components/foto";
 import { listarVariantes, resumenPeriodo, topSabores } from "@/lib/queries";
-import { euros } from "@/lib/format";
+import { estadoCaja } from "@/lib/caja";
+import { euros, fecha } from "@/lib/format";
 
 export default async function Inicio() {
-  const [hoy, semana, mes, top, variantes] = await Promise.all([
+  const [hoy, semana, mes, top, variantes, caja] = await Promise.all([
     resumenPeriodo(1),
     resumenPeriodo(7),
     resumenPeriodo(30),
     topSabores(30),
     listarVariantes(),
+    estadoCaja(),
   ]);
   const bajos = variantes
     .filter((v) => v.stock <= v.stockMinimo && (v.stockMinimo > 0 || v.stock <= 0))
@@ -49,6 +51,15 @@ export default async function Inicio() {
               Ya puedes <Link href="/ventas/nueva" className="enlace">vender</Link>.
             </li>
           </ol>
+        </div>
+      )}
+
+      {caja.pendienteDeOtroDia && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span>La caja está sin cerrar desde el {fecha(caja.periodo.desde)}.</span>
+          <Link href="/caja" className="font-medium underline">
+            Cerrar caja
+          </Link>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { euros } from "@/lib/format";
 
 export function Cabecera({
   titulo,
@@ -54,6 +55,14 @@ export function Dato({ etiqueta, valor, detalle }: { etiqueta: string; valor: Re
       {detalle && <div className="mt-0.5 text-xs text-zinc-500">{detalle}</div>}
     </div>
   );
+}
+
+// Resultado de un cierre de caja: contado - esperado
+export function InsigniaDescuadre({ valor }: { valor: number | string }) {
+  const n = Number(valor);
+  if (n === 0) return <Insignia tono="verde">Cuadra</Insignia>;
+  if (n < 0) return <Insignia tono="rojo">Faltan {euros(-n)}</Insignia>;
+  return <Insignia tono="ambar">Sobran {euros(n)}</Insignia>;
 }
 
 export function InsigniaStock({ stock, minimo }: { stock: number; minimo: number }) {

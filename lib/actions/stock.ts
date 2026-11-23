@@ -231,6 +231,9 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
       const [ve] = await tx
         .insert(ventas)
         .values({
+          // Hora real de la base de datos (no la del inicio de la transacción) para que el cierre de caja
+          // nunca deje fuera una venta que se estaba guardando justo al cerrar
+          fecha: sql`clock_timestamp()`,
           metodoPago: input.metodoPago,
           subtotal: subtotal.toFixed(2),
           descuento: descuento.toFixed(2),
@@ -285,7 +288,8 @@ export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado
         v.stock += l.cantidad;
         v.coste = coste;
       }
-      await tx.update(ventas).set({ anulada: true, anuladaEn: new Date() }).where(eq(ventas.id, id));
+      // La hora de anulación decide en qué cierre de caja sale el dinero devuelto
+      await tx.update(ventas).set({ anulada: true, anuladaEn: sql`clock_timestamp()` }).where(eq(ventas.id, id));
     });
   } catch (e) {
     return { error: mensajeError(e) };

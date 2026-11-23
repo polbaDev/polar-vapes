@@ -10,6 +10,7 @@ App web para llevar las compras, las ventas y el stock de la tienda: marcas, mod
 - **Inventario:** stock por variante con filtros, avisos de reposición, valor del stock y el historial de movimientos de cada producto.
 - **Ajustes:** para recuentos, roturas o regalos, siempre con su motivo.
 - **Anular** una venta o una compra devuelve o retira las unidades del stock y deja el registro marcado.
+- **Caja:** al final del día cuentas el efectivo (a mano o billete a billete) y la app te dice si cuadra con lo que debería haber: fondo inicial + ventas en efectivo − ventas anuladas + entradas − salidas de dinero (pagos al repartidor, dinero llevado al banco…). Dices cuánto dejas de cambio para el día siguiente y queda guardado el historial de cierres con sus descuadres. También muestra lo cobrado con tarjeta y Bizum para compararlo con el datáfono. Si te equivocas, puedes reabrir el último cierre.
 - **Inicio:** ventas y beneficio de hoy, de los últimos 7 días y de los últimos 30, lo que hay que reponer y los sabores más vendidos.
 - **Ficha de producto:** foto, características, stock total, valor del stock y ventas de 30 días, más una tarjeta por sabor con su foto, precio, stock y ventas. Desde ahí puedes poner un mismo precio a todos los sabores a la vez.
 - **Fotos:** se pueden subir desde el móvil o el PC, o importar pegando un enlace. Se guardan en la propia base de datos, así que funcionan igual en Docker y en Supabase.
@@ -148,6 +149,7 @@ app/
     ventas/              cobro (nueva), listado y detalle
     compras/             nueva compra, listado y detalle
     inventario/          stock, movimientos y ajustes
+    caja/                cierre de caja, entradas/salidas de dinero e historial
     catalogo/            productos, variantes, sabores, marcas y proveedores
 components/              piezas de interfaz (TPV, formulario de compra…)
 lib/
@@ -168,4 +170,4 @@ scripts/seed.mjs         carga el catálogo inicial
 ## Siguientes fases
 
 - **Fase 2:** informes por sabor, marca y periodo, rotación y stock muerto, exportar a Excel y gráficas.
-- **Fase 3:** escáner con la cámara del móvil, clientes habituales, usuarios para empleados con permisos y cierre de caja diario.
+- **Fase 3:** escáner con la cámara del móvil, clientes habituales, usuarios para empleados con permisos.

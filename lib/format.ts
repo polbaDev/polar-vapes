@@ -34,6 +34,11 @@ export function hoyISO(tz = process.env.APP_TZ || "Europe/Madrid") {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 }
 
+export function diaISO(d: Date | string, tz = process.env.APP_TZ || "Europe/Madrid") {
+  // YYYY-MM-DD de un instante, en la zona horaria de la tienda
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(d));
+}
+
 export function redondear(v: number, dec = 2) {
   const f = 10 ** dec;
   return Math.round((v + Number.EPSILON) * f) / f;

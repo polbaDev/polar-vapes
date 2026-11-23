@@ -29,7 +29,7 @@ export function NavEscritorio() {
   const path = usePathname();
   return (
     <nav className="hidden items-center gap-1 md:flex">
-      {[...ENLACES, { href: "/catalogo", texto: "Catálogo", icono: "" }].map((e) =>
+      {[...ENLACES, { href: "/caja", texto: "Caja", icono: "" }, { href: "/catalogo", texto: "Catálogo", icono: "" }].map((e) =>
         "destacado" in e && e.destacado ? (
           <Link key={e.href} href={e.href} className="btn ml-1 mr-1 py-1.5">
             + Vender

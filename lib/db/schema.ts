@@ -191,6 +191,58 @@ export const lineasVenta = pgTable(
   ],
 );
 
+// ---------- Caja ----------
+
+// Cada cierre cubre desde el cierre anterior (o el inicio del día, el primero) hasta el momento de cerrar.
+// Las cifras se guardan como foto de ese momento: no cambian aunque luego se anule una venta.
+export const cierresCaja = pgTable(
+  "cierres_caja",
+  {
+    id: serial("id").primaryKey(),
+    desde: timestamp("desde", { withTimezone: true }).notNull(),
+    hasta: timestamp("hasta", { withTimezone: true }).notNull(),
+    fondoInicial: numeric("fondo_inicial", { precision: 10, scale: 2 }).notNull(),
+    ventasEfectivo: numeric("ventas_efectivo", { precision: 12, scale: 2 }).notNull(),
+    // Ventas en efectivo anuladas en este periodo (dinero devuelto al cliente)
+    devolucionesEfectivo: numeric("devoluciones_efectivo", { precision: 12, scale: 2 }).notNull(),
+    entradas: numeric("entradas", { precision: 12, scale: 2 }).notNull(),
+    salidas: numeric("salidas", { precision: 12, scale: 2 }).notNull(),
+    esperado: numeric("esperado", { precision: 12, scale: 2 }).notNull(),
+    contado: numeric("contado", { precision: 12, scale: 2 }).notNull(),
+    // contado - esperado: positivo = sobra dinero, negativo = falta
+    descuadre: numeric("descuadre", { precision: 12, scale: 2 }).notNull(),
+    // Efectivo que se queda en el cajón para empezar el siguiente periodo
+    fondoSiguiente: numeric("fondo_siguiente", { precision: 10, scale: 2 }).notNull(),
+    // Netos del periodo (ventas menos anulaciones), para comprobar con el datáfono y el móvil
+    ventasTarjeta: numeric("ventas_tarjeta", { precision: 12, scale: 2 }).notNull(),
+    ventasBizum: numeric("ventas_bizum", { precision: 12, scale: 2 }).notNull(),
+    tickets: integer("tickets").notNull(),
+    notas: text("notas"),
+  },
+  (t) => [
+    index("cierres_caja_hasta_idx").on(t.hasta),
+    check("cierres_caja_importes_ck", sql`${t.contado} >= 0 and ${t.fondoSiguiente} >= 0 and ${t.fondoSiguiente} <= ${t.contado}`),
+  ],
+);
+
+// Dinero que entra o sale del cajón sin ser una venta: pagar a un repartidor, llevar al banco, poner cambio…
+// tipo: entrada | salida
+export const movimientosCaja = pgTable(
+  "movimientos_caja",
+  {
+    id: serial("id").primaryKey(),
+    fecha: timestamp("fecha", { withTimezone: true }).notNull().defaultNow(),
+    tipo: text("tipo").notNull(),
+    importe: numeric("importe", { precision: 10, scale: 2 }).notNull(),
+    motivo: text("motivo").notNull(),
+  },
+  (t) => [
+    index("movimientos_caja_fecha_idx").on(t.fecha),
+    check("movimientos_caja_importe_ck", sql`${t.importe} > 0`),
+    check("movimientos_caja_tipo_ck", sql`${t.tipo} in ('entrada', 'salida')`),
+  ],
+);
+
 // ---------- Stock ----------
 
 // tipo: compra | venta | ajuste | anulacion_compra | anulacion_venta
