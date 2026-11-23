@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { crearVenta } from "@/lib/actions/stock";
 import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
@@ -27,7 +28,11 @@ function aTexto(n: number) {
   return n.toFixed(2).replace(".", ",");
 }
 
-const vendible = (v: VarianteLigera) => v.stock > 0 && v.precio > 0;
+// Unidades que se pueden vender: el stock menos lo apartado en reservas de otros clientes
+const libres = (v: VarianteLigera) => v.stock - v.reservado;
+const vendible = (v: VarianteLigera) => libres(v) > 0 && v.precio > 0;
+
+export type ReservaEnTpv = { id: number; codigo: string; nombre: string; lineas: { varianteId: number; cantidad: number }[] };
 
 // Importes típicos que te puede dar el cliente: el justo y el siguiente billete redondo
 function entregasRapidas(total: number) {
@@ -40,10 +45,15 @@ function entregasRapidas(total: number) {
   return [...opciones].sort((a, b) => a - b).slice(0, 4);
 }
 
-export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
+export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]; reserva?: ReservaEnTpv | null }) {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [producto, setProducto] = useState<number | null>(null);
-  const [lineas, setLineas] = useState<Linea[]>([]);
+  // Al cobrar una reserva, el ticket empieza con sus productos (se pueden cambiar)
+  const [reservaActiva, setReservaActiva] = useState(reserva);
+  const [lineas, setLineas] = useState<Linea[]>(() =>
+    (reserva?.lineas ?? []).filter((l) => variantes.some((v) => v.id === l.varianteId)).map((l) => ({ id: l.varianteId, cantidad: l.cantidad })),
+  );
   const [pago, setPago] = useState("efectivo");
   const [descuento, setDescuento] = useState("");
   const [entregado, setEntregado] = useState("");
@@ -104,7 +114,11 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   // Devuelve el motivo si no se puede añadir
   function motivoNoAnadir(v: VarianteLigera) {
     if (v.precio <= 0) return `"${v.sabor}" no tiene precio de venta. Pónselo en Catálogo.`;
-    if (enTicket(v.id) >= v.stock) return v.stock <= 0 ? `No queda stock de "${v.sabor}".` : `De "${v.sabor}" solo hay ${v.stock}.`;
+    if (enTicket(v.id) >= libres(v)) {
+      if (v.stock <= 0) return `No queda stock de "${v.sabor}".`;
+      if (v.reservado > 0) return `De "${v.sabor}" quedan ${v.stock}, pero ${v.reservado} están apartadas en reservas.`;
+      return `De "${v.sabor}" solo hay ${v.stock}.`;
+    }
     return null;
   }
 
@@ -138,8 +152,8 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
   function cambiarCantidad(id: number, delta: number) {
     const v = porId.get(id);
     const n = enTicket(id) + delta;
-    if (v && n > v.stock) {
-      setError(`Solo hay ${v.stock} de ese producto.`);
+    if (v && n > libres(v)) {
+      setError(v.reservado > 0 ? `Solo hay ${Math.max(libres(v), 0)} libres de ese producto (${v.reservado} apartadas en reservas).` : `Solo hay ${v.stock} de ese producto.`);
       return;
     }
     setError(null);
@@ -172,12 +186,17 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
         metodoPago: pago,
         descuento: desc,
         mayorEdad,
+        reservaId: reservaActiva?.id ?? null,
       });
       if (r?.error) {
         setError(r.error);
         return;
       }
       setHecho({ id: r!.id!, total: r!.total ?? total, cambio });
+      if (reservaActiva) {
+        setReservaActiva(null);
+        router.replace("/ventas/nueva");
+      }
       setLineas([]);
       setDescuento("");
       setEntregado("");
@@ -256,7 +275,7 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
           <>
             <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {resultados.map((v) => {
-                const quedan = v.stock - enTicket(v.id);
+                const quedan = libres(v) - enTicket(v.id);
                 const sinPrecio = v.precio <= 0;
                 return (
                   <li key={v.id}>
@@ -278,8 +297,9 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
                           {sinPrecio ? "sin precio" : eur.format(v.precio)}
                         </span>
                         <span className={`block text-xs ${quedan <= 0 ? "text-red-600" : "text-zinc-500"}`}>
-                          {quedan <= 0 ? "sin stock" : `quedan ${quedan}`}
+                          {quedan <= 0 ? (v.reservado > 0 && v.stock > 0 ? "todo reservado" : "sin stock") : `quedan ${quedan}`}
                         </span>
+                        {v.reservado > 0 && <span className="block text-xs text-amber-700">{v.reservado} reservadas</span>}
                       </span>
                     </button>
                   </li>
@@ -298,6 +318,23 @@ export function Tpv({ variantes }: { variantes: VarianteLigera[] }) {
 
       <aside ref={ticketRef} className="min-w-0 scroll-mt-20 lg:sticky lg:top-20 lg:self-start">
         <div className="tarjeta overflow-hidden">
+          {reservaActiva && (
+            <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+              <span>
+                Cobrando la reserva <strong className="font-mono">{reservaActiva.codigo}</strong> de {reservaActiva.nombre}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setReservaActiva(null);
+                  router.replace("/ventas/nueva");
+                }}
+                className="shrink-0 text-xs underline"
+              >
+                Quitar
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
             <h2 className="font-semibold">Ticket</h2>
             {lineas.length > 0 && (

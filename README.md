@@ -16,6 +16,13 @@ App web para llevar las compras, las ventas y el stock de la tienda: marcas, mod
 - **Anular** una venta o una compra devuelve o retira las unidades del stock y deja el registro marcado. Es para tickets registrados por error.
 - **Devoluciones parciales** (en el detalle de la venta → «Registrar devolución»): eliges qué unidades te devuelven, cómo devuelves el dinero (efectivo, tarjeta o Bizum) y si vuelven al stock o están defectuosas. Si el ticket tuvo descuento, se reparte en proporción. Lo defectuoso no vuelve a la venta y su coste cuenta como pérdida. En ventas, beneficio y sabores más vendidos, lo devuelto se resta de la venta original; en la caja, el dinero sale el día en que lo devuelves. Una venta con devoluciones ya no se puede anular: si te devuelven el resto, es otra devolución.
 - **Caja:** al final del día cuentas el efectivo (a mano o billete a billete) y la app te dice si cuadra con lo que debería haber: fondo inicial + ventas en efectivo − ventas anuladas + entradas − salidas de dinero (pagos al repartidor, dinero llevado al banco…). Dices cuánto dejas de cambio para el día siguiente y queda guardado el historial de cierres con sus descuadres. También muestra lo cobrado con tarjeta y Bizum para compararlo con el datáfono. Si te equivocas, puedes reabrir el último cierre.
+- **Catálogo para clientes y reservas:** una parte pública, sin contraseña, donde los clientes ven modelos, sabores, fotos, precio y si hay («Disponible / Últimas unidades / Agotado», nunca cuántas). No es un canal de venta: el cliente elige, pone su nombre y reserva; recibe un código (R-XXXXXX) y un botón que le abre tu WhatsApp con el mensaje escrito. La venta se cierra por WhatsApp.
+  - En **Reservas** confirmas, rechazas, cambias cantidades o la cancelas. Lo reservado queda apartado y el TPV no deja vendérselo a otro. «Vender» abre el TPV con la reserva cargada.
+  - Si no la confirmas a tiempo (2 h por defecto) o no se cierra la venta (24 h desde que la confirmas), caduca sola y el stock vuelve a estar libre. Una caducada se puede reactivar si sigue habiendo unidades.
+  - En **Ajustes** (desde Reservas): tu WhatsApp, el nombre que ven los clientes, un texto (horario…), los tiempos, el máximo de unidades por reserva y abrir o cerrar el catálogo.
+  - Al entrar se pregunta si es mayor de edad, no sale en buscadores y hay límites contra reservas falsas (como mucho 3 en curso por conexión).
+  - **Dos direcciones, una sola app:** cualquier dirección que empiece por `catalogo.` (por ejemplo `catalogo.tudominio.es`) solo enseña el catálogo; cualquier otra (`gestion.tudominio.es`, `localhost`, la IP del PC) es la gestión con contraseña. En este PC: http://catalogo.localhost:3000 y http://gestion.localhost:3000.
+- **Entrada protegida:** 5 contraseñas fallidas seguidas desde la misma conexión bloquean la entrada 15 minutos (30 fallos en total la bloquean para todos).
 - **Inicio:** ventas y beneficio de hoy, de los últimos 7 días y de los últimos 30, lo que hay que reponer y los sabores más vendidos.
 - **Ficha de producto:** foto, características, stock total, valor del stock y ventas de 30 días, más una tarjeta por sabor con su foto, precio, stock y ventas. Desde ahí puedes poner un mismo precio a todos los sabores a la vez.
 - **Fotos:** se pueden subir desde el móvil o el PC, o importar pegando un enlace. Se guardan en la propia base de datos, así que funcionan igual en Docker y en Supabase.
@@ -171,6 +178,15 @@ datos/                   catálogo inicial e imágenes de respaldo
 scripts/migrate.mjs      aplica las migraciones
 scripts/seed.mjs         carga el catálogo inicial
 ```
+
+## Publicar el catálogo en internet (pendiente)
+
+Ahora la app solo se ve desde este PC y la red de la tienda. Para que los clientes entren al catálogo hace falta un dominio (unos 10 €/año) y elegir dónde se aloja:
+
+- **Túnel de Cloudflare desde este PC** (gratis): mismo Docker y mismas copias; el catálogo solo funciona con el PC encendido.
+- **Servidor pequeño de alquiler** (desde unos 5 €/mes): el mismo Docker funcionando las 24 h.
+
+En los dos casos se apuntan `catalogo.tudominio.es` y `gestion.tudominio.es` a la app, con https. Se puede añadir además un código por email para entrar en `gestion` (Cloudflare Access).
 
 ## Siguientes fases
 

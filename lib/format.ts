@@ -34,6 +34,19 @@ export function hoyISO(tz = process.env.APP_TZ || "Europe/Madrid") {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 }
 
+// «hoy a las 18:30», «mañana a las 10:00» o «el 25/11 a las 10:00»
+export function cuando(d: Date | string, tz = process.env.APP_TZ || "Europe/Madrid") {
+  const fecha = new Date(d);
+  const hora = new Intl.DateTimeFormat("es-ES", { timeZone: tz, hour: "2-digit", minute: "2-digit" }).format(fecha);
+  const dia = diaISO(fecha, tz);
+  const hoy = diaISO(new Date(), tz);
+  const manana = diaISO(new Date(Date.now() + 86400000), tz);
+  if (dia === hoy) return `hoy a las ${hora}`;
+  if (dia === manana) return `mañana a las ${hora}`;
+  const dm = new Intl.DateTimeFormat("es-ES", { timeZone: tz, day: "2-digit", month: "2-digit" }).format(fecha);
+  return `el ${dm} a las ${hora}`;
+}
+
 export function diaISO(d: Date | string, tz = process.env.APP_TZ || "Europe/Madrid") {
   // YYYY-MM-DD de un instante, en la zona horaria de la tienda
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(d));

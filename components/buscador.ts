@@ -8,6 +8,8 @@ export type VarianteLigera = {
   precio: number;
   coste: number;
   stock: number;
+  // Unidades apartadas en reservas (no se pueden vender a otro)
+  reservado: number;
   codigo: string | null;
   imagenId: number | null;
   color: string | null;

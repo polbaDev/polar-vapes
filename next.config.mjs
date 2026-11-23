@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // En desarrollo, el catálogo y la gestión se prueban en catalogo.localhost y gestion.localhost
+  allowedDevOrigins: ["catalogo.localhost", "gestion.localhost"],
   // sharp se usa en el servidor para procesar imágenes
   serverExternalPackages: ["sharp"],
   experimental: {

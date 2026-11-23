@@ -294,6 +294,73 @@ export const movimientosCaja = pgTable(
   ],
 );
 
+// ---------- Reservas (catálogo público) ----------
+
+// estado: pendiente | confirmada | vendida | rechazada | cancelada
+// Una reserva pendiente o confirmada aparta sus unidades hasta caduca_en. Pasada esa hora se considera
+// caducada sin tocar nada (no hace falta ninguna tarea programada): las unidades vuelven a estar libres.
+export const reservas = pgTable(
+  "reservas",
+  {
+    id: serial("id").primaryKey(),
+    // Código que ve el cliente (R-XXXXXX). Aleatorio para que no se puedan adivinar otras reservas.
+    codigo: text("codigo").notNull().unique(),
+    nombre: text("nombre").notNull(),
+    estado: text("estado").notNull().default("pendiente"),
+    creadaEn: timestamp("creada_en", { withTimezone: true }).notNull().defaultNow(),
+    caducaEn: timestamp("caduca_en", { withTimezone: true }).notNull(),
+    confirmadaEn: timestamp("confirmada_en", { withTimezone: true }),
+    cerradaEn: timestamp("cerrada_en", { withTimezone: true }),
+    ventaId: integer("venta_id").references(() => ventas.id, { onDelete: "set null" }),
+    notas: text("notas"),
+    // Huella de la IP (no la IP) para limitar reservas falsas
+    origen: text("origen"),
+  },
+  (t) => [
+    index("reservas_estado_caduca_idx").on(t.estado, t.caducaEn),
+    index("reservas_origen_idx").on(t.origen, t.creadaEn),
+    check("reservas_estado_ck", sql`${t.estado} in ('pendiente', 'confirmada', 'vendida', 'rechazada', 'cancelada')`),
+  ],
+);
+
+export const lineasReserva = pgTable(
+  "lineas_reserva",
+  {
+    id: serial("id").primaryKey(),
+    reservaId: integer("reserva_id")
+      .notNull()
+      .references(() => reservas.id, { onDelete: "cascade" }),
+    varianteId: integer("variante_id")
+      .notNull()
+      .references(() => variantes.id, { onDelete: "restrict" }),
+    cantidad: integer("cantidad").notNull(),
+    // Precio cuando se reservó (para el mensaje y el total que ve el cliente)
+    precioUnidad: numeric("precio_unidad", { precision: 10, scale: 2 }).notNull(),
+  },
+  (t) => [
+    index("lineas_reserva_reserva_idx").on(t.reservaId),
+    index("lineas_reserva_variante_idx").on(t.varianteId),
+    check("lineas_reserva_cantidad_ck", sql`${t.cantidad} > 0`),
+  ],
+);
+
+// Ajustes del catálogo (WhatsApp, tiempos…), como clave → valor
+export const ajustes = pgTable("ajustes", {
+  clave: text("clave").primaryKey(),
+  valor: text("valor").notNull(),
+});
+
+// Intentos fallidos de entrar, para bloquear a quien prueba contraseñas
+export const intentosLogin = pgTable(
+  "intentos_login",
+  {
+    id: serial("id").primaryKey(),
+    origen: text("origen").notNull(),
+    fecha: timestamp("fecha", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("intentos_login_origen_idx").on(t.origen, t.fecha), index("intentos_login_fecha_idx").on(t.fecha)],
+);
+
 // ---------- Stock ----------
 
 // tipo: compra | venta | ajuste | anulacion_compra | anulacion_venta | devolucion

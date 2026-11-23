@@ -25,11 +25,22 @@ function Icono({ d }: { d: string }) {
   );
 }
 
-export function NavEscritorio() {
+// Número de reservas por confirmar al lado del enlace
+export function Contador({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">{n}</span>;
+}
+
+export function NavEscritorio({ pendientes = 0 }: { pendientes?: number }) {
   const path = usePathname();
   return (
     <nav className="hidden items-center gap-1 md:flex">
-      {[...ENLACES, { href: "/caja", texto: "Caja", icono: "" }, { href: "/catalogo", texto: "Catálogo", icono: "" }].map((e) =>
+      {[
+        ...ENLACES,
+        { href: "/reservas", texto: "Reservas", icono: "" },
+        { href: "/caja", texto: "Caja", icono: "" },
+        { href: "/catalogo", texto: "Catálogo", icono: "" },
+      ].map((e) =>
         "destacado" in e && e.destacado ? (
           <Link key={e.href} href={e.href} className="btn ml-1 mr-1 py-1.5">
             + Vender
@@ -43,6 +54,7 @@ export function NavEscritorio() {
             }`}
           >
             {e.texto}
+            {e.href === "/reservas" && <Contador n={pendientes} />}
           </Link>
         ),
       )}

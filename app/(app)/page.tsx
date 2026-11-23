@@ -3,16 +3,18 @@ import { Cabecera, Dato, InsigniaStock, Vacio } from "@/components/ui";
 import { Foto } from "@/components/foto";
 import { listarVariantes, resumenPeriodo, topSabores } from "@/lib/queries";
 import { estadoCaja } from "@/lib/caja";
+import { contarPendientes } from "@/lib/reservas";
 import { euros, fecha } from "@/lib/format";
 
 export default async function Inicio() {
-  const [hoy, semana, mes, top, variantes, caja] = await Promise.all([
+  const [hoy, semana, mes, top, variantes, caja, reservasPendientes] = await Promise.all([
     resumenPeriodo(1),
     resumenPeriodo(7),
     resumenPeriodo(30),
     topSabores(30),
     listarVariantes(),
     estadoCaja(),
+    contarPendientes(),
   ]);
   const bajos = variantes
     .filter((v) => v.stock <= v.stockMinimo && (v.stockMinimo > 0 || v.stock <= 0))
@@ -51,6 +53,17 @@ export default async function Inicio() {
               Ya puedes <Link href="/ventas/nueva" className="enlace">vender</Link>.
             </li>
           </ol>
+        </div>
+      )}
+
+      {reservasPendientes > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span>
+            {reservasPendientes === 1 ? "Tienes 1 reserva por confirmar." : `Tienes ${reservasPendientes} reservas por confirmar.`}
+          </span>
+          <Link href="/reservas" className="font-medium underline">
+            Ver reservas
+          </Link>
         </div>
       )}
 

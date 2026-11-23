@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
-import { db, type Tx } from "@/lib/db";
+import { db } from "@/lib/db";
+import { bloquearVariantes, costeTrasEntrada } from "@/lib/bloqueo";
 import {
   compras,
   lineasCompra,
@@ -22,37 +23,6 @@ import { type Resultado, texto, entero, mensajeError } from "./tipos";
 
 function refrescarStock() {
   revalidatePath("/", "layout");
-}
-
-// Bloquea las variantes (en orden, para evitar bloqueos cruzados) y devuelve stock y coste actuales.
-async function bloquearVariantes(tx: Tx, ids: number[]) {
-  const unicos = [...new Set(ids)].sort((a, b) => a - b);
-  if (unicos.length === 0) return new Map<number, { stock: number; coste: number; precio: number; activo: boolean; nombre: string }>();
-  const lista = sql.join(unicos.map((i) => sql`${i}`), sql`, `);
-  await tx.execute(sql`select id from variantes where id in (${lista}) order by id for update`);
-  const rows = (await tx.execute(sql`
-    select v.id, v.coste_medio as coste, v.precio_venta as precio, (v.activo and p.activo) as activo,
-           ma.nombre || ' ' || p.modelo || ' · ' || s.nombre || ' · ' || v.nicotina_mg || ' mg' as nombre,
-           coalesce((select sum(m.cantidad) from movimientos_stock m where m.variante_id = v.id), 0)::int as stock
-    from variantes v
-    join productos p on p.id = v.producto_id
-    join marcas ma on ma.id = p.marca_id
-    join sabores s on s.id = v.sabor_id
-    where v.id in (${lista})
-  `)) as unknown as { id: number; coste: string; precio: string; activo: boolean; nombre: string; stock: number }[];
-  const mapa = new Map<number, { stock: number; coste: number; precio: number; activo: boolean; nombre: string }>();
-  for (const r of rows) {
-    mapa.set(r.id, { stock: r.stock, coste: Number(r.coste), precio: Number(r.precio), activo: r.activo, nombre: r.nombre });
-  }
-  for (const id of unicos) if (!mapa.has(id)) throw new Error(`El producto #${id} no existe.`);
-  return mapa;
-}
-
-// Coste medio ponderado al entrar unidades
-function costeTrasEntrada(stock: number, coste: number, cantidad: number, costeEntrada: number) {
-  const base = Math.max(stock, 0);
-  if (base + cantidad <= 0) return costeEntrada;
-  return (base * coste + cantidad * costeEntrada) / (base + cantidad);
 }
 
 // ======================= COMPRAS =======================
@@ -196,6 +166,8 @@ export type VentaInput = {
   descuento: number;
   mayorEdad: boolean;
   notas?: string | null;
+  // Si se cobra una reserva: sus unidades no cuentan como apartadas y la reserva queda vendida
+  reservaId?: number | null;
 };
 
 export async function crearVenta(input: VentaInput): Promise<Resultado & { total?: number }> {
@@ -212,17 +184,30 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
     if (cant.size === 0) throw new Error("El ticket está vacío.");
 
     const res = await db.transaction(async (tx) => {
-      const estado = await bloquearVariantes(tx, [...cant.keys()]);
+      const reservaId = input.reservaId || null;
+      if (reservaId) {
+        const [r] = (await tx.execute(
+          sql`select estado from reservas where id = ${reservaId} for update`,
+        )) as unknown as { estado: string }[];
+        if (!r) throw new Error("La reserva no existe.");
+        if (r.estado !== "pendiente" && r.estado !== "confirmada") {
+          throw new Error(`Esa reserva ya está ${r.estado}. Quita la reserva del ticket para vender sin ella.`);
+        }
+      }
+      const estado = await bloquearVariantes(tx, [...cant.keys()], reservaId);
       let subtotal = 0;
       for (const [vid, c] of cant) {
         const v = estado.get(vid)!;
         if (!v.activo) throw new Error(`"${v.nombre}" está desactivado.`);
         if (v.precio <= 0) throw new Error(`"${v.nombre}" no tiene precio de venta. Pónselo en Catálogo.`);
-        if (v.stock < c) {
+        const libres = v.stock - v.reservado;
+        if (libres < c) {
           throw new Error(
             v.stock <= 0
               ? `No queda stock de "${v.nombre}". Registra la compra o ajusta el inventario.`
-              : `De "${v.nombre}" solo quedan ${v.stock}.`,
+              : v.reservado > 0
+                ? `De "${v.nombre}" quedan ${v.stock}, pero ${v.reservado} están apartadas en reservas.`
+                : `De "${v.nombre}" solo quedan ${v.stock}.`,
           );
         }
         subtotal += c * v.precio;
@@ -256,6 +241,11 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           costeUnidad: v.coste.toFixed(4),
         });
         await tx.insert(movimientosStock).values({ varianteId: vid, tipo: "venta", cantidad: -c, ventaId: ve.id });
+      }
+      if (reservaId) {
+        await tx.execute(
+          sql`update reservas set estado = 'vendida', venta_id = ${ve.id}, cerrada_en = now() where id = ${reservaId}`,
+        );
       }
       return { id: ve.id, total };
     });

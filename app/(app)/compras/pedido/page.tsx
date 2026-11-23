@@ -3,6 +3,7 @@ import { Pedido } from "@/components/pedido";
 import { calcularPedidoSugerido } from "@/lib/pedido";
 import { listarMarcas, listarProveedores } from "@/lib/queries";
 import { fecha, hoyISO } from "@/lib/format";
+import { telefonoWhatsApp } from "@/lib/ajustes";
 
 export const metadata = { title: "Pedido sugerido · Gestión Vapers" };
 
@@ -12,16 +13,6 @@ const VENTANAS = [14, 30, 60, 90];
 function entre(valor: string | undefined, permitidos: number[], porDefecto: number) {
   const n = Number(valor);
   return permitidos.includes(n) ? n : porDefecto;
-}
-
-// Teléfono en formato internacional sin "+" para el enlace de WhatsApp (los de 9 cifras se toman como de España)
-function telefonoWhatsApp(t: string | null) {
-  if (!t) return null;
-  let d = t.replace(/[^\d+]/g, "");
-  if (d.startsWith("+")) d = d.slice(1);
-  else if (d.startsWith("00")) d = d.slice(2);
-  else if (/^[6789]\d{8}$/.test(d)) d = `34${d}`;
-  return /^\d{8,15}$/.test(d) ? d : null;
 }
 
 export default async function PedidoSugerido({
