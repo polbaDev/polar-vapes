@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { calcularPedido } from "@/lib/pedido-calculo";
+import { DEVUELTO_POR_LINEA } from "@/lib/queries";
 
 export type OpcionesPedido = {
   // Días de ventas que se miran para calcular el ritmo
@@ -43,9 +44,10 @@ export async function calcularPedidoSugerido(o: OpcionesPedido): Promise<LineaPe
 
   const filas = (await db.execute(sql`
     with vendidas as (
-      select l.variante_id, sum(l.cantidad)::int as unidades
+      select l.variante_id, sum(l.cantidad - coalesce(dl.cantidad, 0))::int as unidades
       from lineas_venta l
       join ventas ve on ve.id = l.venta_id and not ve.anulada
+      left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
       where ve.fecha > now() - make_interval(days => ${o.ventana}::int)
       group by l.variante_id
     ),

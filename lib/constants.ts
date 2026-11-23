@@ -39,6 +39,7 @@ export const TIPOS_MOVIMIENTO: Record<string, string> = {
   ajuste: "Ajuste",
   anulacion_compra: "Compra anulada",
   anulacion_venta: "Venta anulada",
+  devolucion: "Devolución de cliente",
 };
 
 export function etiqueta(lista: readonly { value: string; label: string }[], value: string | null | undefined) {

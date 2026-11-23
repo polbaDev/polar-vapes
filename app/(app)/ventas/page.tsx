@@ -34,12 +34,14 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
 
   const ventas = await listarVentas(desde, hasta);
   const validas = ventas.filter((v) => !v.anulada);
-  const total = validas.reduce((s, v) => s + Number(v.total), 0);
-  const beneficio = validas.reduce((s, v) => s + Number(v.total) - Number(v.coste), 0);
+  // Lo que queda cobrado de cada venta, descontando devoluciones parciales
+  const neto = (v: (typeof ventas)[number]) => Number(v.total) - Number(v.devuelto);
+  const total = validas.reduce((s, v) => s + neto(v), 0);
+  const beneficio = validas.reduce((s, v) => s + neto(v) - Number(v.coste), 0);
   const unidades = validas.reduce((s, v) => s + v.unidades, 0);
   const porPago = METODOS_PAGO.map((m) => ({
     ...m,
-    total: validas.filter((v) => v.metodoPago === m.value).reduce((s, v) => s + Number(v.total), 0),
+    total: validas.filter((v) => v.metodoPago === m.value).reduce((s, v) => s + neto(v), 0),
   }));
 
   return (
@@ -99,10 +101,16 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
                   <td className="whitespace-nowrap">{fechaHora(v.fecha)}</td>
                   <td>{etiqueta(METODOS_PAGO, v.metodoPago)}</td>
                   <td className="text-right tabular-nums">{v.unidades}</td>
-                  <td className="text-right font-medium tabular-nums">{euros(v.total)}</td>
-                  <td className="text-right tabular-nums">{v.anulada ? "" : euros(Number(v.total) - Number(v.coste))}</td>
+                  <td className="text-right font-medium tabular-nums">
+                    {euros(v.anulada ? v.total : neto(v))}
+                    {Number(v.devuelto) > 0 && !v.anulada && (
+                      <div className="text-xs font-normal text-zinc-500">de {euros(v.total)}</div>
+                    )}
+                  </td>
+                  <td className="text-right tabular-nums">{v.anulada ? "" : euros(neto(v) - Number(v.coste))}</td>
                   <td className="text-right no-underline">
-                    {v.anulada && <Insignia tono="rojo">Anulada</Insignia>}{" "}
+                    {v.anulada && <Insignia tono="rojo">Anulada</Insignia>}
+                    {Number(v.devuelto) > 0 && !v.anulada && <Insignia tono="ambar">Devolución</Insignia>}{" "}
                     <Link href={`/ventas/${v.id}`} className="enlace text-sm">
                       Ver
                     </Link>

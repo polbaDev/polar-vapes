@@ -11,7 +11,10 @@ import {
   variantes,
   movimientosStock,
   proveedores,
+  devoluciones,
+  lineasDevolucion,
 } from "@/lib/db/schema";
+import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { exigirSesion } from "@/lib/session";
 import { METODOS_PAGO, MOTIVOS_AJUSTE, valores, etiqueta } from "@/lib/constants";
 import { redondear } from "@/lib/format";
@@ -273,6 +276,10 @@ export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado
       const [ve] = await tx.select().from(ventas).where(eq(ventas.id, id)).for("update");
       if (!ve) throw new Error("La venta no existe.");
       if (ve.anulada) throw new Error("Esta venta ya estaba anulada.");
+      const [dev] = await tx.select({ id: devoluciones.id }).from(devoluciones).where(eq(devoluciones.ventaId, id)).limit(1);
+      if (dev) {
+        throw new Error("Esta venta ya tiene devoluciones y no se puede anular. Si te devuelven el resto, regístralo como otra devolución.");
+      }
       const lineas = await tx.select().from(lineasVenta).where(eq(lineasVenta.ventaId, id));
       const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId));
       for (const l of lineas) {
@@ -296,6 +303,111 @@ export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado
   }
   refrescarStock();
   return { ok: "Venta anulada. Las unidades han vuelto al stock." };
+}
+
+// ======================= DEVOLUCIONES =======================
+
+export type DevolucionInput = {
+  ventaId: number;
+  lineas: { lineaVentaId: number; cantidad: number }[];
+  metodoPago: string;
+  vuelveAlStock: boolean;
+  motivo?: string | null;
+};
+
+export async function crearDevolucion(input: DevolucionInput): Promise<Resultado & { total?: number }> {
+  await exigirSesion();
+  try {
+    if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error("Elige cómo devuelves el dinero.");
+    if (typeof input.vuelveAlStock !== "boolean") throw new Error("Elige si las unidades vuelven al stock.");
+    const pedidas = new Map<number, number>();
+    for (const l of input.lineas) {
+      if (!Number.isInteger(l.cantidad) || l.cantidad < 0) throw new Error("Cantidades no válidas.");
+      if (l.cantidad > 0) pedidas.set(l.lineaVentaId, (pedidas.get(l.lineaVentaId) ?? 0) + l.cantidad);
+    }
+    if (pedidas.size === 0) throw new Error("Elige qué unidades te devuelven.");
+
+    const res = await db.transaction(async (tx) => {
+      const [ve] = await tx.select().from(ventas).where(eq(ventas.id, input.ventaId)).for("update");
+      if (!ve) throw new Error("La venta no existe.");
+      if (ve.anulada) throw new Error("La venta está anulada: no se puede devolver nada.");
+
+      const lineas = (await tx.execute(sql`
+        select l.id, l.variante_id as "varianteId", l.cantidad, l.precio_unidad as "precioUnidad", l.coste_unidad as "costeUnidad",
+               coalesce((select sum(ld.cantidad) from lineas_devolucion ld where ld.linea_venta_id = l.id), 0)::int as devueltas
+        from lineas_venta l where l.venta_id = ${ve.id} order by l.id
+      `)) as unknown as { id: number; varianteId: number; cantidad: number; precioUnidad: string; costeUnidad: string; devueltas: number }[];
+      const [{ ya }] = (await tx.execute(
+        sql`select coalesce(sum(importe), 0) as ya from devoluciones where venta_id = ${ve.id}`,
+      )) as unknown as { ya: string }[];
+
+      for (const [lid, cant] of pedidas) {
+        const l = lineas.find((x) => x.id === lid);
+        if (!l) throw new Error("Esa línea no es de esta venta.");
+        if (cant > l.cantidad - l.devueltas) {
+          throw new Error(`De una de las líneas solo quedan ${l.cantidad - l.devueltas} por devolver.`);
+        }
+      }
+
+      const { porLinea, total } = importesDevolucion(
+        { total: Number(ve.total), subtotal: Number(ve.subtotal), yaDevuelto: Number(ya) },
+        lineas.map((l) => ({
+          id: l.id,
+          precioUnidad: Number(l.precioUnidad),
+          cantidad: l.cantidad,
+          devueltas: l.devueltas,
+          aDevolver: pedidas.get(l.id) ?? 0,
+        })),
+      );
+
+      const [d] = await tx
+        .insert(devoluciones)
+        .values({
+          ventaId: ve.id,
+          // Hora real: decide en qué cierre de caja sale el dinero
+          fecha: sql`clock_timestamp()`,
+          metodoPago: input.metodoPago,
+          importe: total.toFixed(2),
+          vuelveAlStock: input.vuelveAlStock,
+          motivo: input.motivo?.trim() || null,
+        })
+        .returning({ id: devoluciones.id });
+
+      const elegidas = lineas.filter((l) => pedidas.has(l.id));
+      const estado = input.vuelveAlStock ? await bloquearVariantes(tx, elegidas.map((l) => l.varianteId)) : null;
+      for (const l of elegidas) {
+        const cant = pedidas.get(l.id)!;
+        await tx.insert(lineasDevolucion).values({
+          devolucionId: d.id,
+          lineaVentaId: l.id,
+          varianteId: l.varianteId,
+          cantidad: cant,
+          importe: (porLinea.get(l.id) ?? 0).toFixed(2),
+          costeUnidad: l.costeUnidad,
+        });
+        if (estado) {
+          // Vuelve a estar a la venta al coste que tenía cuando se vendió
+          const v = estado.get(l.varianteId)!;
+          const coste = costeTrasEntrada(v.stock, v.coste, cant, Number(l.costeUnidad));
+          await tx.insert(movimientosStock).values({
+            varianteId: l.varianteId,
+            tipo: "devolucion",
+            cantidad: cant,
+            motivo: input.motivo?.trim() || null,
+            ventaId: ve.id,
+          });
+          await tx.update(variantes).set({ costeMedio: coste.toFixed(4) }).where(eq(variantes.id, l.varianteId));
+          v.stock += cant;
+          v.coste = coste;
+        }
+      }
+      return { id: d.id, total };
+    });
+    refrescarStock();
+    return { ok: "Devolución registrada.", id: res.id, total: res.total };
+  } catch (e) {
+    return { error: mensajeError(e) };
+  }
 }
 
 // ======================= AJUSTES DE INVENTARIO =======================

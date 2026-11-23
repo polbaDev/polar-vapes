@@ -191,6 +191,57 @@ export const lineasVenta = pgTable(
   ],
 );
 
+// ---------- Devoluciones ----------
+
+// El cliente devuelve parte de una venta. El dinero sale por metodo_pago (efectivo cuenta en la caja
+// del día en que se devuelve). Si vuelve_al_stock, las unidades vuelven a estar a la venta;
+// si no (defectuoso), no se tocan el stock ni el coste y su coste queda como pérdida.
+export const devoluciones = pgTable(
+  "devoluciones",
+  {
+    id: serial("id").primaryKey(),
+    ventaId: integer("venta_id")
+      .notNull()
+      .references(() => ventas.id, { onDelete: "restrict" }),
+    fecha: timestamp("fecha", { withTimezone: true }).notNull().defaultNow(),
+    metodoPago: text("metodo_pago").notNull(),
+    importe: numeric("importe", { precision: 12, scale: 2 }).notNull(),
+    vuelveAlStock: boolean("vuelve_al_stock").notNull(),
+    motivo: text("motivo"),
+  },
+  (t) => [
+    index("devoluciones_venta_idx").on(t.ventaId),
+    index("devoluciones_fecha_idx").on(t.fecha),
+    check("devoluciones_importe_ck", sql`${t.importe} >= 0`),
+  ],
+);
+
+export const lineasDevolucion = pgTable(
+  "lineas_devolucion",
+  {
+    id: serial("id").primaryKey(),
+    devolucionId: integer("devolucion_id")
+      .notNull()
+      .references(() => devoluciones.id, { onDelete: "cascade" }),
+    lineaVentaId: integer("linea_venta_id")
+      .notNull()
+      .references(() => lineasVenta.id, { onDelete: "restrict" }),
+    varianteId: integer("variante_id")
+      .notNull()
+      .references(() => variantes.id, { onDelete: "restrict" }),
+    cantidad: integer("cantidad").notNull(),
+    // Dinero devuelto por esta línea (con el descuento del ticket ya repartido)
+    importe: numeric("importe", { precision: 12, scale: 2 }).notNull(),
+    // Coste de la línea de venta original
+    costeUnidad: numeric("coste_unidad", { precision: 12, scale: 4 }).notNull(),
+  },
+  (t) => [
+    index("lineas_devolucion_devolucion_idx").on(t.devolucionId),
+    index("lineas_devolucion_linea_venta_idx").on(t.lineaVentaId),
+    check("lineas_devolucion_cantidad_ck", sql`${t.cantidad} > 0`),
+  ],
+);
+
 // ---------- Caja ----------
 
 // Cada cierre cubre desde el cierre anterior (o el inicio del día, el primero) hasta el momento de cerrar.
@@ -245,7 +296,7 @@ export const movimientosCaja = pgTable(
 
 // ---------- Stock ----------
 
-// tipo: compra | venta | ajuste | anulacion_compra | anulacion_venta
+// tipo: compra | venta | ajuste | anulacion_compra | anulacion_venta | devolucion
 // cantidad con signo: + entra, - sale. El stock es la suma.
 export const movimientosStock = pgTable(
   "movimientos_stock",

@@ -82,7 +82,7 @@ export async function cerrarCaja(_: Resultado, fd: FormData): Promise<Resultado>
     id = await db.transaction(async (tx) => {
       // Mientras se cierra, nadie puede registrar ni anular ventas ni movimientos de caja:
       // así ninguna operación se queda fuera de este cierre y del siguiente.
-      await tx.execute(sql`lock table cierres_caja, ventas, movimientos_caja in share row exclusive mode`);
+      await tx.execute(sql`lock table cierres_caja, ventas, devoluciones, movimientos_caja in share row exclusive mode`);
       const periodo = await periodoAbierto(tx);
       if ((periodo.ultimoId ?? 0) !== ultimoVisto) {
         throw new Error("La caja ya se ha cerrado desde otra pantalla. Recarga la página para ver el periodo nuevo.");

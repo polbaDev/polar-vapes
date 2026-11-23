@@ -44,7 +44,7 @@ export default async function Caja() {
               </div>
               {cuentas.devolucionesEfectivo > 0 && (
                 <div className="flex justify-between">
-                  <dt className="text-zinc-500">− Ventas en efectivo anuladas</dt>
+                  <dt className="text-zinc-500">− Devoluciones y anulaciones en efectivo</dt>
                   <dd className="tabular-nums">{euros(cuentas.devolucionesEfectivo)}</dd>
                 </div>
               )}

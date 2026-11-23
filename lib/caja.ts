@@ -86,13 +86,24 @@ export async function cuentasCaja(ej: Ejecutor, desde: Date, hasta: Date | null)
       where fecha > ${ini} and fecha <= ${fin}
     `,
   );
+  // Devoluciones parciales: el dinero sale el día en que se devuelve, por el medio que se elija
+  const [d] = await filas<{ efectivo: string; tarjeta: string; bizum: string }>(
+    ej,
+    sql`
+      select coalesce(sum(importe) filter (where metodo_pago = 'efectivo'), 0) as efectivo,
+             coalesce(sum(importe) filter (where metodo_pago = 'tarjeta'), 0) as tarjeta,
+             coalesce(sum(importe) filter (where metodo_pago = 'bizum'), 0) as bizum
+      from devoluciones
+      where fecha > ${ini} and fecha <= ${fin}
+    `,
+  );
   return {
     ventasEfectivo: Number(v.efectivo),
-    devolucionesEfectivo: Number(v.devoluciones),
+    devolucionesEfectivo: Number(v.devoluciones) + Number(d.efectivo),
     entradas: Number(m.entradas),
     salidas: Number(m.salidas),
-    ventasTarjeta: Number(v.tarjeta),
-    ventasBizum: Number(v.bizum),
+    ventasTarjeta: Number(v.tarjeta) - Number(d.tarjeta),
+    ventasBizum: Number(v.bizum) - Number(d.bizum),
     tickets: v.tickets,
   };
 }

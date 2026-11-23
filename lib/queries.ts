@@ -12,6 +12,16 @@ async function filas<T>(q: ReturnType<typeof sql>): Promise<T[]> {
 
 const STOCK = sql`coalesce((select sum(m.cantidad) from movimientos_stock m where m.variante_id = v.id), 0)::int`;
 
+// Lo devuelto de cada línea de venta: unidades, dinero devuelto y coste que se recupera
+// (solo el de lo que vuelve al stock; lo defectuoso se queda como pérdida).
+// Las devoluciones restan de la venta original en los informes; en la caja cuentan el día en que se hacen.
+export const DEVUELTO_POR_LINEA = sql`(
+  select ld.linea_venta_id, sum(ld.cantidad)::int as cantidad, sum(ld.importe) as importe,
+         sum(case when d.vuelve_al_stock then ld.cantidad * ld.coste_unidad else 0 end) as coste
+  from lineas_devolucion ld join devoluciones d on d.id = ld.devolucion_id
+  group by ld.linea_venta_id
+)`;
+
 export type VarianteFila = {
   id: number;
   productoId: number;
@@ -101,11 +111,19 @@ export async function resumenPeriodo(dias: number) {
       select id, total from ventas
       where not anulada
         and (fecha at time zone ${TZ})::date > (now() at time zone ${TZ})::date - ${dias}::int
+    ),
+    ls as (
+      select l.cantidad - coalesce(dl.cantidad, 0) as unidades,
+             l.cantidad * l.coste_unidad - coalesce(dl.coste, 0) as coste,
+             coalesce(dl.importe, 0) as devuelto
+      from lineas_venta l
+      left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
+      where l.venta_id in (select id from vs)
     )
     select (select count(*) from vs)::int as ventas,
-           coalesce((select sum(total) from vs), 0) as total,
-           coalesce((select sum(l.cantidad) from lineas_venta l where l.venta_id in (select id from vs)), 0)::int as unidades,
-           coalesce((select sum(l.cantidad * l.coste_unidad) from lineas_venta l where l.venta_id in (select id from vs)), 0) as coste
+           coalesce((select sum(total) from vs), 0) - coalesce((select sum(devuelto) from ls), 0) as total,
+           coalesce((select sum(unidades) from ls), 0)::int as unidades,
+           coalesce((select sum(coste) from ls), 0) as coste
   `);
   const total = Number(r.total);
   const coste = Number(r.coste);
@@ -114,13 +132,16 @@ export async function resumenPeriodo(dias: number) {
 
 export async function topSabores(dias: number, limite = 5) {
   return filas<{ sabor: string; unidades: number; total: string }>(sql`
-    select s.nombre as sabor, sum(l.cantidad)::int as unidades, sum(l.cantidad * l.precio_unidad) as total
+    select s.nombre as sabor, sum(l.cantidad - coalesce(dl.cantidad, 0))::int as unidades,
+           sum(l.cantidad * l.precio_unidad - coalesce(dl.importe, 0)) as total
     from lineas_venta l
     join ventas ve on ve.id = l.venta_id and not ve.anulada
     join variantes v on v.id = l.variante_id
     join sabores s on s.id = v.sabor_id
+    left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
     where (ve.fecha at time zone ${TZ})::date > (now() at time zone ${TZ})::date - ${dias}::int
     group by s.nombre
+    having sum(l.cantidad - coalesce(dl.cantidad, 0)) > 0
     order by unidades desc
     limit ${limite}
   `);
@@ -135,6 +156,9 @@ export type VentaFila = {
   subtotal: string;
   descuento: string;
   total: string;
+  // Dinero devuelto en devoluciones parciales (total - devuelto = lo que queda cobrado)
+  devuelto: string;
+  // Coste de lo que se queda el cliente (más lo defectuoso devuelto, que es pérdida)
   coste: string;
   unidades: number;
   anulada: boolean;
@@ -143,10 +167,12 @@ export type VentaFila = {
 export async function listarVentas(desde: string, hasta: string, incluirAnuladas = true) {
   return filas<VentaFila>(sql`
     select ve.id, ve.fecha, ve.metodo_pago as "metodoPago", ve.subtotal, ve.descuento, ve.total, ve.anulada,
-           coalesce(sum(l.cantidad * l.coste_unidad), 0) as coste,
-           coalesce(sum(l.cantidad), 0)::int as unidades
+           coalesce(sum(dl.importe), 0) as devuelto,
+           coalesce(sum(l.cantidad * l.coste_unidad), 0) - coalesce(sum(dl.coste), 0) as coste,
+           coalesce(sum(l.cantidad - coalesce(dl.cantidad, 0)), 0)::int as unidades
     from ventas ve
     left join lineas_venta l on l.venta_id = ve.id
+    left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
     where (ve.fecha at time zone ${TZ})::date between ${desde}::date and ${hasta}::date
       ${incluirAnuladas ? sql`` : sql`and not ve.anulada`}
     group by ve.id
@@ -182,18 +208,43 @@ export async function detalleVenta(id: number) {
     cantidad: number;
     precioUnidad: string;
     costeUnidad: string;
+    devueltas: number;
+    importeDevuelto: string;
+    costeDevuelto: string;
   }>(sql`
     select l.id, l.variante_id as "varianteId", ma.nombre as marca, p.modelo, s.nombre as sabor,
-           v.nicotina_mg as "nicotinaMg", l.cantidad, l.precio_unidad as "precioUnidad", l.coste_unidad as "costeUnidad"
+           v.nicotina_mg as "nicotinaMg", l.cantidad, l.precio_unidad as "precioUnidad", l.coste_unidad as "costeUnidad",
+           coalesce(dl.cantidad, 0) as devueltas, coalesce(dl.importe, 0) as "importeDevuelto",
+           coalesce(dl.coste, 0) as "costeDevuelto"
     from lineas_venta l
     join variantes v on v.id = l.variante_id
     join productos p on p.id = v.producto_id
     join marcas ma on ma.id = p.marca_id
     join sabores s on s.id = v.sabor_id
+    left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
     where l.venta_id = ${id}
     order by l.id
   `);
-  return { ...venta, lineas };
+  const devoluciones = await filas<{
+    id: number;
+    fecha: Date;
+    metodoPago: string;
+    importe: string;
+    vuelveAlStock: boolean;
+    motivo: string | null;
+    detalle: string;
+  }>(sql`
+    select d.id, d.fecha, d.metodo_pago as "metodoPago", d.importe, d.vuelve_al_stock as "vuelveAlStock", d.motivo,
+           string_agg(s.nombre || ' × ' || ld.cantidad, ', ' order by ld.id) as detalle
+    from devoluciones d
+    join lineas_devolucion ld on ld.devolucion_id = d.id
+    join variantes v on v.id = ld.variante_id
+    join sabores s on s.id = v.sabor_id
+    where d.venta_id = ${id}
+    group by d.id
+    order by d.fecha, d.id
+  `);
+  return { ...venta, lineas, devoluciones };
 }
 
 // ---------- Compras ----------
@@ -361,11 +412,13 @@ export async function variantesDeProducto(productoId: number) {
 // Unidades vendidas por sabor de un producto en los últimos N días
 export async function ventasPorVariante(productoId: number, dias = 30) {
   const rows = await filas<{ varianteId: number; unidades: number; total: string; coste: string }>(sql`
-    select l.variante_id as "varianteId", sum(l.cantidad)::int as unidades,
-           sum(l.cantidad * l.precio_unidad) as total, sum(l.cantidad * l.coste_unidad) as coste
+    select l.variante_id as "varianteId", sum(l.cantidad - coalesce(dl.cantidad, 0))::int as unidades,
+           sum(l.cantidad * l.precio_unidad - coalesce(dl.importe, 0)) as total,
+           sum(l.cantidad * l.coste_unidad - coalesce(dl.coste, 0)) as coste
     from lineas_venta l
     join ventas ve on ve.id = l.venta_id and not ve.anulada
     join variantes v on v.id = l.variante_id
+    left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
     where v.producto_id = ${productoId}
       and (ve.fecha at time zone ${TZ})::date > (now() at time zone ${TZ})::date - ${dias}::int
     group by l.variante_id
