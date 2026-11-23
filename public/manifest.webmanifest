@@ -1,0 +1,9 @@
+{
+  "name": "Gestión Vapers",
+  "short_name": "Vapers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#6a44e4",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

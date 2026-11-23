@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --color-marca-50: #f4f1fe;
+  --color-marca-100: #e8e2fd;
+  --color-marca-200: #d2c7fb;
+  --color-marca-500: #7c5cf0;
+  --color-marca-600: #6a44e4;
+  --color-marca-700: #5a35c8;
+  --color-marca-900: #2f1d6b;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-zinc-50 text-zinc-900 antialiased;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
+/* Clases reutilizables */
+@layer components {
+  .campo {
+    @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-[15px] outline-none transition focus:border-marca-500 focus:ring-2 focus:ring-marca-100 disabled:bg-zinc-100;
+  }
+  .etiqueta {
+    @apply mb-1 block text-sm font-medium text-zinc-700;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-marca-600 px-4 py-2 text-[15px] font-medium text-white transition hover:bg-marca-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-sec {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-[15px] font-medium text-zinc-800 transition hover:bg-zinc-100 active:scale-[0.98] disabled:opacity-50;
+  }
+  .btn-peligro {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-[15px] font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50;
+  }
+  .tarjeta {
+    @apply rounded-xl border border-zinc-200 bg-white;
+  }
+  .tabla {
+    @apply w-full text-left text-sm;
+  }
+  .tabla th {
+    @apply border-b border-zinc-200 px-3 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500;
+  }
+  .tabla td {
+    @apply border-b border-zinc-100 px-3 py-2.5 align-middle;
+  }
+  .tabla tr:last-child td {
+    @apply border-b-0;
+  }
+  .enlace {
+    @apply font-medium text-marca-700 hover:underline;
+  }
+}

@@ -1,0 +1,7 @@
+# Finales de línea LF siempre (evita problemas en Docker desde Windows)
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.ico binary
+*.webp binary
+*.dump binary

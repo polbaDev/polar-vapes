@@ -1,0 +1,141 @@
+{
+  "_nota": "Catálogo que se carga la PRIMERA vez que arranca la app (si no hay productos). Las imágenes se descargan de 'url'; si falla, se usa 'archivo' (recorte del cartel).",
+  "productos": [
+    {
+      "marca": "Razz Bar",
+      "modelo": "60K",
+      "tipo": "desechable",
+      "caladas": 60000,
+      "ml": 20,
+      "descripcion": "Desechable recargable con cuerpo transparente efecto cristal. Hasta 60.000 caladas y 16 sabores.",
+      "caracteristicas": [
+        "60.000 caladas",
+        "20 ml de líquido",
+        "Batería 650 mAh recargable",
+        "Carga USB tipo C",
+        "Resistencia de malla 1,0 Ω",
+        "Nicotina 2 % (20 mg/ml)"
+      ],
+      "imagen": {
+        "archivo": "imagenes/razz-bar-60k-cartel.webp"
+      },
+      "nicotinaMg": 20,
+      "precio": 0,
+      "stockMinimo": 3,
+      "sabores": [
+        {
+          "nombre": "Strawberry Banana",
+          "categoria": "fruta",
+          "descripcion": "Fresa y plátano",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Banana.jpg",
+          "archivo": "imagenes/razz-bar-60k/strawberry-banana.webp"
+        },
+        {
+          "nombre": "Juicy Peach Ice",
+          "categoria": "fruta",
+          "descripcion": "Melocotón jugoso con toque helado",
+          "url": "https://cdn.razzbarvape.es/2026/07/Razz-Bar-60000-Juicy-Peach-Ice.jpg",
+          "archivo": "imagenes/razz-bar-60k/juicy-peach-ice.webp"
+        },
+        {
+          "nombre": "Coco Loco",
+          "categoria": "fruta",
+          "descripcion": "Coco tropical",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Coco-Loco.jpg",
+          "archivo": "imagenes/razz-bar-60k/coco-loco.webp"
+        },
+        {
+          "nombre": "Blueberry Sour Raspberry",
+          "categoria": "fruta",
+          "descripcion": "Arándano y frambuesa ácida",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Blueberry-Sour-Raspberry.jpg",
+          "archivo": "imagenes/razz-bar-60k/blueberry-sour-raspberry.webp"
+        },
+        {
+          "nombre": "Cotton Candy",
+          "categoria": "postre",
+          "descripcion": "Algodón de azúcar",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Cotton-Candy.jpg",
+          "archivo": "imagenes/razz-bar-60k/cotton-candy.webp"
+        },
+        {
+          "nombre": "Gummy Bear",
+          "categoria": "postre",
+          "descripcion": "Ositos de gominola",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Gummy-Bear.jpg",
+          "archivo": "imagenes/razz-bar-60k/gummy-bear.webp"
+        },
+        {
+          "nombre": "Blueberry Watermelon",
+          "categoria": "fruta",
+          "descripcion": "Arándano y sandía",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Blueberry-Watermelon.jpg",
+          "archivo": "imagenes/razz-bar-60k/blueberry-watermelon.webp"
+        },
+        {
+          "nombre": "Lemon Peach Passion Fruit",
+          "categoria": "fruta",
+          "descripcion": "Limón, melocotón y maracuyá",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Lemon-Peach-Passion-Fruit.jpg",
+          "archivo": "imagenes/razz-bar-60k/lemon-peach-passion-fruit.webp"
+        },
+        {
+          "nombre": "Black Ice Dragon Fruit Strawberry",
+          "categoria": "fruta",
+          "descripcion": "Pitahaya y fresa con hielo",
+          "url": "https://cdn.razzbarvape.es/2026/07/Razz-Bar-60000-Black-Ice-Dragon-Fruit-Strawberry.jpg",
+          "archivo": "imagenes/razz-bar-60k/black-ice-dragon-fruit-strawberry.webp"
+        },
+        {
+          "nombre": "Mixed Berries",
+          "categoria": "fruta",
+          "descripcion": "Frutos del bosque",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Mixed-Berries.jpg",
+          "archivo": "imagenes/razz-bar-60k/mixed-berries.webp"
+        },
+        {
+          "nombre": "Love 66",
+          "categoria": "fruta",
+          "descripcion": "Sandía, melón y maracuyá",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Love-66.jpg",
+          "archivo": "imagenes/razz-bar-60k/love-66.webp"
+        },
+        {
+          "nombre": "Strawberry Kiwi",
+          "categoria": "fruta",
+          "descripcion": "Fresa y kiwi",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Kiwi.jpg",
+          "archivo": "imagenes/razz-bar-60k/strawberry-kiwi.webp"
+        },
+        {
+          "nombre": "Tropical Fruit",
+          "categoria": "fruta",
+          "descripcion": "Mango y piña",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Tropical-Fruit.jpg",
+          "archivo": "imagenes/razz-bar-60k/tropical-fruit.webp"
+        },
+        {
+          "nombre": "Strawberry Vanilla Coke",
+          "categoria": "bebida",
+          "descripcion": "Refresco de cola con fresa y vainilla",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Vanilla-Coke.jpg",
+          "archivo": "imagenes/razz-bar-60k/strawberry-vanilla-coke.webp"
+        },
+        {
+          "nombre": "Lemon Lime",
+          "categoria": "fruta",
+          "descripcion": "Limón y lima",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Lemon-Lime.jpg",
+          "archivo": "imagenes/razz-bar-60k/lemon-lime.webp"
+        },
+        {
+          "nombre": "Summer Dream",
+          "categoria": "fruta",
+          "descripcion": "Mezcla de frutas de verano",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Summer-Dream.jpg",
+          "archivo": "imagenes/razz-bar-60k/summer-dream.webp"
+        }
+      ]
+    }
+  ]
+}
