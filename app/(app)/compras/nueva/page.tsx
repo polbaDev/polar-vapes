@@ -6,12 +6,37 @@ import { hoyISO } from "@/lib/format";
 
 export const metadata = { title: "Nueva compra · Gestión Vapers" };
 
-export default async function NuevaCompra() {
-  const [variantes, proveedores] = await Promise.all([variantesLigeras(), listarProveedores()]);
+// ?proveedor=3&lineas=12:10,13:5 → compra ya rellena (viene del pedido sugerido)
+function leerInicial(sp: { proveedor?: string; lineas?: string }) {
+  if (!sp.lineas) return undefined;
+  const lineas = sp.lineas
+    .split(",")
+    .map((par) => par.split(":").map(Number))
+    .filter(([id, n]) => Number.isInteger(id) && id > 0 && Number.isInteger(n) && n > 0 && n <= 100000)
+    .map(([varianteId, cantidad]) => ({ varianteId, cantidad }));
+  return { proveedorId: Number(sp.proveedor) || null, lineas };
+}
+
+export default async function NuevaCompra({ searchParams }: { searchParams: Promise<{ proveedor?: string; lineas?: string }> }) {
+  const [variantes, proveedores, sp] = await Promise.all([variantesLigeras(), listarProveedores(), searchParams]);
+  const inicial = leerInicial(sp);
   return (
     <>
-      <Cabecera titulo="Nueva compra" subtitulo="Lo que registres aquí entra en el stock al guardar." volver={{ href: "/compras", texto: "Compras" }} />
-      <FormCompra variantes={variantes} proveedores={proveedores.map((p) => ({ id: p.id, nombre: p.nombre }))} hoy={hoyISO()} />
+      <Cabecera
+        titulo="Nueva compra"
+        subtitulo={
+          inicial
+            ? "Rellenada con tu pedido. Revisa cantidades y costes con la factura antes de guardar."
+            : "Lo que registres aquí entra en el stock al guardar."
+        }
+        volver={{ href: "/compras", texto: "Compras" }}
+      />
+      <FormCompra
+        variantes={variantes}
+        proveedores={proveedores.map((p) => ({ id: p.id, nombre: p.nombre }))}
+        hoy={hoyISO()}
+        inicial={inicial}
+      />
     </>
   );
 }

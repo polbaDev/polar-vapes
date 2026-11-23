@@ -19,19 +19,31 @@ export function FormCompra({
   variantes,
   proveedores,
   hoy,
+  inicial,
 }: {
   variantes: VarianteLigera[];
   proveedores: { id: number; nombre: string }[];
   hoy: string;
+  // Para abrir la compra ya rellena (desde el pedido sugerido)
+  inicial?: { proveedorId: number | null; lineas: { varianteId: number; cantidad: number }[] };
 }) {
   const router = useRouter();
-  const [proveedorId, setProveedorId] = useState("");
+  const [proveedorId, setProveedorId] = useState(
+    inicial?.proveedorId && proveedores.some((p) => p.id === inicial.proveedorId) ? String(inicial.proveedorId) : "",
+  );
   const [proveedorNuevo, setProveedorNuevo] = useState("");
   const [fecha, setFecha] = useState(hoy);
   const [factura, setFactura] = useState("");
   const [envio, setEnvio] = useState("");
   const [notas, setNotas] = useState("");
-  const [lineas, setLineas] = useState<Linea[]>([]);
+  const [lineas, setLineas] = useState<Linea[]>(() => {
+    const porVariante = new Map(variantes.map((v) => [v.id, v]));
+    return (inicial?.lineas ?? []).flatMap((l, i) => {
+      const v = porVariante.get(l.varianteId);
+      if (!v) return [];
+      return [{ key: i + 1, varianteId: v.id, cantidad: String(l.cantidad), coste: v.coste > 0 ? v.coste.toFixed(2) : "", lote: "" }];
+    });
+  });
   const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();

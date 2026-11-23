@@ -6,6 +6,7 @@ App web para llevar las compras, las ventas y el stock de la tienda: marcas, mod
 
 - **Catálogo:** marcas, sabores (con categoría), proveedores, productos (marca + modelo) y sus variantes (sabor + nicotina, con precio, stock mínimo y código de barras).
 - **Compras:** registras lo que compras a un proveedor. Al guardar, el stock sube solo y se recalcula el coste medio, con los gastos de envío repartidos entre los productos.
+- **Pedido sugerido** (Compras → Pedido sugerido): calcula cuánto pedir de cada sabor según lo que vendes y el stock que te queda. Eliges para cuántos días quieres tener stock, qué periodo de ventas se tiene en cuenta, si el proveedor vende en cajas (por ejemplo de 10) y, si quieres, filtras por marca o por el último proveedor al que compraste. Puedes cambiar las cantidades, copiar el pedido o mandarlo por WhatsApp (al móvil del proveedor, si lo tiene guardado), y cuando llegue, abrir la compra ya rellena. La fórmula: lo que venderías en esos días al ritmo actual + el stock mínimo − lo que ya tienes. Si un sabor entró en stock hace poco, el ritmo se calcula solo con los días que lleva a la venta.
 - **Ventas:** pantalla de cobro pensada para el móvil. Buscas o escaneas el producto, eliges cómo te pagan (efectivo, tarjeta o Bizum) y la app te calcula el cambio. Antes de cobrar hay que marcar que el cliente es mayor de edad.
 - **Inventario:** stock por variante con filtros, avisos de reposición, valor del stock y el historial de movimientos de cada producto.
 - **Ajustes:** para recuentos, roturas o regalos, siempre con su motivo.

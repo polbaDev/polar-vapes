@@ -11,9 +11,14 @@ export default async function Compras() {
         titulo="Compras"
         subtitulo="Pedidos a proveedores. Cada compra suma stock y actualiza el coste medio."
         acciones={
-          <Link href="/compras/nueva" className="btn">
-            Nueva compra
-          </Link>
+          <>
+            <Link href="/compras/pedido" className="btn-sec">
+              Pedido sugerido
+            </Link>
+            <Link href="/compras/nueva" className="btn">
+              Nueva compra
+            </Link>
+          </>
         }
       />
       {compras.length === 0 ? (

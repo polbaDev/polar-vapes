@@ -85,9 +85,14 @@ export default async function Inicio() {
         <section className="tarjeta overflow-hidden">
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
             <h2 className="font-semibold">Reponer</h2>
-            <Link href="/inventario?bajo=1" className="text-sm enlace">
-              Ver todo
-            </Link>
+            <span className="flex gap-4">
+              <Link href="/inventario?bajo=1" className="text-sm enlace">
+                Ver todo
+              </Link>
+              <Link href="/compras/pedido" className="text-sm enlace">
+                Hacer pedido
+              </Link>
+            </span>
           </div>
           {bajos.length === 0 ? (
             <p className="px-4 py-6 text-sm text-zinc-500">Nada por debajo del mínimo.</p>
