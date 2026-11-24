@@ -22,4 +22,4 @@ export function esIdioma(v: unknown): v is Idioma {
 }
 
 // Color de la barra del navegador en móvil
-export const COLOR_BARRA = { claro: "#f3f7f7", oscuro: "#0a1113" } as const;
+export const COLOR_BARRA = { claro: "#f6f2ee", oscuro: "#120b0d" } as const;

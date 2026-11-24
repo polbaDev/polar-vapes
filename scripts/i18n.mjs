@@ -57,7 +57,7 @@ for (const archivo of carpetas.flatMap((c) => archivos(join(raiz, c)))) {
   lineas.forEach((l, i) => {
     if (/^\s*(\/\/|\*|\/\*)/.test(l)) return;
     for (const m of l.matchAll(reJsx)) {
-      if (/^(Polar|R-XXXXXX|A–Z|CA|ES|mg|ml|€|uds?\.?)$/.test(m[1].trim())) continue;
+      if (/^(PolAr Vapes|Pol|Ar|Vapes|R-XXXXXX|A–Z|CA|ES|mg|ml|€|uds?\.?)$/.test(m[1].trim())) continue;
       if (/[=;]|=>|&&|\|\|/.test(m[1])) continue;
       sospechosos.push(`${rel}:${i + 1}  ${m[1].trim()}`);
     }

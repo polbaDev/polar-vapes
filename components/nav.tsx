@@ -190,7 +190,7 @@ export function MenuUsuario({ nombreTienda }: { nombreTienda: string }) {
         title={t("Menú")}
         aria-label={t("Menú")}
       >
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-acento text-[.72rem] font-bold text-[#3d1a06]">{iniciales(nombreTienda)}</span>
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-acento text-[.72rem] font-bold text-[#2a0c14]">{iniciales(nombreTienda)}</span>
       </button>
       <div id="menu-usuario" popover="auto" className="pop pop--cab">
         <div className="pop__cab">

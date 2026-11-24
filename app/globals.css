@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
-/* Polar: paleta propia (azul petróleo + albaricoque) sobre la estructura visual de FinqCat
+/* PolAr Vapes (de Pol y Arnau), ruta «Sello»: burdeos, hueso y oro viejo, con la estructura visual de FinqCat
    (tarjetas de 26 px, navegación en cápsula, riel flotante, vidrio solo en lo que flota).
 
    Tema: <html data-tema="claro|oscuro">; sin atributo manda el sistema. Todos los colores se escriben con
    light-dark(), así que cambian solos con el tema y no hace falta ninguna clase dark:.
 
    Las pantallas usan las escalas zinc, emerald, red, amber y marca de Tailwind. Aquí se redefinen con la paleta
-   de Polar y se invierten en oscuro: zinc-50/100 son fondos suaves y zinc-900 el texto principal en los dos temas.
+   de PolAr y se invierten en oscuro: zinc-50/100 son fondos suaves y zinc-900 el texto principal en los dos temas.
    Para una superficie que debe ser siempre oscura (la cámara del escáner) usa neutral-*, que no se toca.
    bg-superficie es el fondo de tarjetas y campos (blanco en claro). */
 
@@ -16,25 +16,25 @@
 @property --pill-der { syntax: "<length>"; inherits: false; initial-value: 0px; }
 
 @theme {
-  --color-marca-50: light-dark(#e9f5f5, #0f2a2c);
-  --color-marca-100: light-dark(#d3ecec, #133437);
-  --color-marca-200: light-dark(#a8d8d8, #1d4b4e);
-  --color-marca-500: light-dark(#178087, #5cc7c0);
-  --color-marca-600: light-dark(#0e6b70, #7fd8d2);
-  --color-marca-700: light-dark(#0a5559, #a6e8e3);
-  --color-marca-900: light-dark(#063235, #d6f5f2);
+  --color-marca-50: light-dark(#f9eef1, #2a1218);
+  --color-marca-100: light-dark(#f2dde3, #36161f);
+  --color-marca-200: light-dark(#e2b9c4, #52222f);
+  --color-marca-500: light-dark(#7a2a3d, #d48a9c);
+  --color-marca-600: light-dark(#5a1d2c, #e3a9b6);
+  --color-marca-700: light-dark(#471623, #edc3cd);
+  --color-marca-900: light-dark(#2a0c14, #f8e4e9);
 
-  --color-zinc-50: light-dark(#f6f9f9, #162124);
-  --color-zinc-100: light-dark(#eef3f3, #1a2528);
-  --color-zinc-200: light-dark(#dfe7e8, #263437);
-  --color-zinc-300: light-dark(#cbd6d8, #36474a);
-  --color-zinc-400: light-dark(#93a2a5, #75878a);
-  --color-zinc-500: light-dark(#5f6f72, #93a5a8);
-  --color-zinc-600: light-dark(#4f5f62, #b7c7c9);
-  --color-zinc-700: light-dark(#3c4a4d, #ccd9da);
-  --color-zinc-800: light-dark(#2a3639, #dde8e9);
-  --color-zinc-900: light-dark(#172326, #e9f2f2);
-  --color-zinc-950: light-dark(#0c1517, #f5fafa);
+  --color-zinc-50: light-dark(#faf7f5, #1f1517);
+  --color-zinc-100: light-dark(#f3eeea, #261a1d);
+  --color-zinc-200: light-dark(#e6ded9, #33262a);
+  --color-zinc-300: light-dark(#d4c9c4, #46363b);
+  --color-zinc-400: light-dark(#a3969a, #85767a);
+  --color-zinc-500: light-dark(#6f6266, #a9999d);
+  --color-zinc-600: light-dark(#5e5156, #c6b8bb);
+  --color-zinc-700: light-dark(#483c41, #d9cdcf);
+  --color-zinc-800: light-dark(#33282c, #e8dfe0);
+  --color-zinc-900: light-dark(#23181c, #f4eeee);
+  --color-zinc-950: light-dark(#150c0f, #faf7f7);
 
   --color-emerald-50: light-dark(#e8f6ee, #12301f);
   --color-emerald-100: light-dark(#d0eedd, #173d28);
@@ -66,6 +66,7 @@
 
 @theme inline {
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-cormorant), "Cormorant Garamond", Garamond, Georgia, serif;
   --color-superficie: var(--superficie);
   --color-fondo: var(--fondo);
   --color-acento: var(--acento);
@@ -76,19 +77,19 @@
     color-scheme: light dark;
 
     /* Superficies y texto (≥ 4,5:1 sobre fondo, superficie y tarjeta) */
-    --fondo: light-dark(#f3f7f7, #0a1113);
-    --superficie: light-dark(#ffffff, #121b1e);
-    --superficie-2: light-dark(#eef3f3, #1a2528);
-    --texto: light-dark(#172326, #e9f2f2);
-    --texto-2: light-dark(#4f5f62, #b7c7c9);
-    --texto-3: light-dark(#5f6f72, #93a5a8);
+    --fondo: light-dark(#f6f2ee, #120b0d);
+    --superficie: light-dark(#ffffff, #1c1316);
+    --superficie-2: light-dark(#f3eeea, #261a1d);
+    --texto: light-dark(#23181c, #f4eeee);
+    --texto-2: light-dark(#5e5156, #c6b8bb);
+    --texto-3: light-dark(#6f6266, #a9999d);
 
-    /* Marca: un primario (azul petróleo) y un único acento (albaricoque) */
-    --primario: light-dark(#0e6b70, #7fd8d2);
-    --primario-hover: light-dark(#0a5559, #a6e8e3);
-    --primario-texto: light-dark(#ffffff, #052628);
-    --acento: #ffb48a;
-    --acento-texto: light-dark(#a2491c, #ffb48a); /* el albaricoque no llega a 3:1 sobre blanco */
+    /* Marca: burdeos como primario y oro viejo como único acento */
+    --primario: light-dark(#5a1d2c, #e3a9b6);
+    --primario-hover: light-dark(#471623, #edc3cd);
+    --primario-texto: light-dark(#ffffff, #2a0c14);
+    --acento: #c6a76b;
+    --acento-texto: light-dark(#8a6a2c, #d9bd84); /* el oro no llega a 3:1 sobre blanco */
 
     /* Estados */
     --ok: light-dark(#19784a, #4cc38a);
@@ -97,20 +98,20 @@
     --error-suave: light-dark(#fdeceb, #3a1714);
 
     /* Bordes */
-    --borde: light-dark(#dfe7e8, rgb(255 255 255 / .09));
-    --borde-fuerte: light-dark(#cbd6d8, rgb(255 255 255 / .18));
-    --borde-tarjeta: light-dark(rgb(16 36 40 / .08), rgb(255 255 255 / .08));
-    --borde-campo: light-dark(#7f9295, #6f8386); /* ≥ 3:1: es lo único que delimita un campo */
+    --borde: light-dark(#e6ded9, rgb(255 255 255 / .09));
+    --borde-fuerte: light-dark(#d4c9c4, rgb(255 255 255 / .18));
+    --borde-tarjeta: light-dark(rgb(42 12 20 / .08), rgb(255 255 255 / .08));
+    --borde-campo: light-dark(#8f8186, #7a6a6f); /* ≥ 3:1: es lo único que delimita un campo */
 
     /* Capas: la tarjeta es opaca; el vidrio solo va en lo que flota */
-    --tarjeta: light-dark(#ffffff, rgb(18 28 31 / .9));
-    --vidrio-control: light-dark(rgb(255 255 255 / .7), rgb(24 36 40 / .62));
-    --velo-cab: light-dark(rgb(243 247 247 / .72), rgb(10 17 19 / .72));
-    --pop: light-dark(rgb(255 255 255 / .95), rgb(18 27 30 / .95));
+    --tarjeta: light-dark(#ffffff, rgb(30 20 23 / .92));
+    --vidrio-control: light-dark(rgb(255 255 255 / .7), rgb(40 27 31 / .62));
+    --velo-cab: light-dark(rgb(246 242 238 / .75), rgb(18 11 13 / .75));
+    --pop: light-dark(rgb(255 255 255 / .96), rgb(28 19 22 / .96));
     --filo: inset 0 1px 0 light-dark(rgb(255 255 255 / .9), rgb(255 255 255 / .07));
-    --sombra-flot: 0 18px 44px light-dark(rgb(16 36 40 / .16), rgb(0 0 0 / .55)),
-      0 4px 10px light-dark(rgb(16 36 40 / .06), rgb(0 0 0 / .3));
-    --velo-modal: light-dark(rgb(8 20 22 / .38), rgb(2 6 7 / .66));
+    --sombra-flot: 0 18px 44px light-dark(rgb(42 12 20 / .16), rgb(0 0 0 / .55)),
+      0 4px 10px light-dark(rgb(42 12 20 / .06), rgb(0 0 0 / .3));
+    --velo-modal: light-dark(rgb(20 8 12 / .4), rgb(4 2 3 / .66));
     --filtro-control: blur(18px) saturate(160%);
     --filtro-pop: blur(28px) saturate(160%);
 
@@ -139,18 +140,17 @@
     line-height: 1.5;
     color: var(--texto);
     background-color: var(--fondo);
-    /* Fondo ambiental: neblina de petróleo y albaricoque, nunca plano */
+    /* Fondo ambiental: un velo muy suave de burdeos y oro, sobrio */
     background-image:
-      radial-gradient(70% 55% at 12% 105%, light-dark(rgb(72 176 172 / .18), rgb(14 107 112 / .5)) 0%, transparent 70%),
-      radial-gradient(55% 45% at 78% 100%, light-dark(rgb(255 180 138 / .24), rgb(186 104 64 / .24)) 0%, transparent 70%),
-      radial-gradient(60% 50% at 70% -10%, light-dark(rgb(14 107 112 / .08), rgb(64 108 140 / .3)) 0%, transparent 70%),
-      radial-gradient(40% 35% at 95% 30%, light-dark(rgb(255 180 138 / .12), rgb(127 216 210 / .06)) 0%, transparent 70%);
+      radial-gradient(70% 55% at 12% 105%, light-dark(rgb(90 29 44 / .07), rgb(90 29 44 / .45)) 0%, transparent 70%),
+      radial-gradient(55% 45% at 85% 100%, light-dark(rgb(198 167 107 / .14), rgb(198 167 107 / .1)) 0%, transparent 70%),
+      radial-gradient(60% 50% at 70% -10%, light-dark(rgb(90 29 44 / .04), rgb(80 46 62 / .25)) 0%, transparent 70%);
     background-attachment: fixed;
     font-feature-settings: "tnum" 1;
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3 { letter-spacing: -.01em; }
-  ::selection { background: light-dark(rgb(14 107 112 / .18), rgb(127 216 210 / .3)); }
+  ::selection { background: light-dark(rgb(90 29 44 / .16), rgb(227 169 182 / .3)); }
   :focus-visible { outline: 2px solid var(--primario); outline-offset: 2px; }
   input[type="checkbox"], input[type="radio"] { accent-color: var(--primario); }
   input[type="number"]::-webkit-inner-spin-button { opacity: .4; }
@@ -502,7 +502,7 @@
   .barra-movil > a[aria-current="page"] { color: var(--texto); background-color: color-mix(in srgb, var(--texto) 11%, transparent); }
 
   /* Cabecera de página */
-  .titulo-pagina { font-size: clamp(1.75rem, 3vw, 2.4rem); font-weight: 500; line-height: 1.08; letter-spacing: -.035em; }
+  .titulo-pagina { font-family: var(--font-display); font-size: clamp(2rem, 3.4vw, 2.75rem); font-weight: 600; line-height: 1.05; letter-spacing: -.01em; }
   .antetitulo { font-size: .74rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--texto-3); }
 
   /* Entrada de cada pantalla. Sin fill-mode a propósito: al terminar no queda ningún translate que

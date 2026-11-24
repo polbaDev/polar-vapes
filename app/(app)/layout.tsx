@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logotipo } from "@/components/marca";
 import { BarraMovil, MenuUsuario, NavPrincipal, NavSecundariaMovil, Riel } from "@/components/nav";
 import { leerAjustes } from "@/lib/ajustes";
 import { contarPendientes } from "@/lib/reservas";
@@ -15,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="marca shrink-0 hover:no-underline">
             <img src="/icon.svg" alt="" className="h-9 w-9" />
             <span className="hidden xl:block">
-              <span className="text-[1.05rem] tracking-[-.02em]">Polar</span>
+              <Logotipo className="text-[1.4rem] leading-none" />
               <small>{ajustes.nombreTienda}</small>
             </span>
           </Link>

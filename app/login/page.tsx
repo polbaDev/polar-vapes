@@ -1,4 +1,5 @@
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
+import { Logotipo } from "@/components/marca";
 import { MenuPreferencias } from "@/components/preferencias";
 import { entrar } from "@/lib/actions/auth";
 import { traductor } from "@/lib/i18n/servidor";
@@ -17,9 +18,11 @@ export default async function Login() {
       </div>
       <div className="w-full max-w-sm">
         <div className="mb-7 flex flex-col items-center gap-4 text-center">
-          <img src="/icon.svg" alt="" className="h-14 w-14" />
+          <img src="/sello.svg" alt="" className="h-28 w-28" />
           <div>
-            <h1 className="titulo-pagina">Polar</h1>
+            <h1 className="titulo-pagina">
+              <Logotipo />
+            </h1>
             <p className="mt-2 text-sm text-zinc-500">{t("Control de compras, ventas y stock")}</p>
           </div>
         </div>

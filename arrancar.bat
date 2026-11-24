@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Polar - arrancando
+title PolAr Vapes - arrancando
 cd /d "%~dp0"
 
 if not exist ".env" (

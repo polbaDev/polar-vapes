@@ -35,5 +35,5 @@ function urlMismoHost(request: NextRequest, ruta: string) {
 
 export const config = {
   // Todo pasa por aquí salvo los archivos estáticos
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|icon-192.png|icon-512.png|apple-icon.png|sello.svg|manifest.webmanifest).*)"],
 };
