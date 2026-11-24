@@ -22,7 +22,8 @@ De **Pol** y **Ar**nau. App web para llevar las compras, las ventas y el stock d
   - En **Ajustes** (desde Reservas): tu WhatsApp, el nombre que ven los clientes, un texto (horario…), los tiempos, el máximo de unidades por reserva y abrir o cerrar el catálogo.
   - Al entrar se pregunta si es mayor de edad, no sale en buscadores y hay límites contra reservas falsas (como mucho 3 en curso por conexión).
   - **Dos direcciones, una sola app:** cualquier dirección que empiece por `catalogo.` (por ejemplo `catalogo.tudominio.es`) solo enseña el catálogo; cualquier otra (`gestion.tudominio.es`, `localhost`, la IP del PC) es la gestión con contraseña. En este PC: http://catalogo.localhost:3000 y http://gestion.localhost:3000.
-- **Entrada protegida:** 5 contraseñas fallidas seguidas desde la misma conexión bloquean la entrada 15 minutos (30 fallos en total la bloquean para todos).
+- **Entrada protegida:** 5 contraseñas fallidas seguidas desde la misma conexión bloquean la entrada 15 minutos. 30 fallos en total en 15 minutos bloquean la entrada desde dispositivos nuevos, pero no desde los que ya habían entrado antes (el móvil y el PC de la tienda siguen pudiendo entrar).
+- **Sesiones:** caducan a los 30 días. En **Ajustes → Sesiones**, «Cerrar sesión en todos los dispositivos» saca a todos (por ejemplo, si pierdes un móvil); cambiar `APP_PASSWORD` también lo hace.
 - **Inicio:** ventas y beneficio de hoy, de los últimos 7 días y de los últimos 30, lo que hay que reponer y los sabores más vendidos.
 - **Ficha de producto:** foto, características, stock total, valor del stock y ventas de 30 días, más una tarjeta por sabor con su foto, precio, stock y ventas. Desde ahí puedes poner un mismo precio a todos los sabores a la vez.
 - **Fotos:** se pueden subir desde el móvil o el PC, o importar pegando un enlace. Se guardan en la propia base de datos, así que funcionan igual en Docker y en Supabase.
@@ -34,21 +35,17 @@ Tecnología: **Next.js 16** + **PostgreSQL** + **Drizzle ORM** + **Tailwind CSS*
 
 ## 1. Arrancar en tu PC con Docker
 
-Necesitas tener **Docker Desktop** abierto.
+Necesitas tener **Docker Desktop** instalado y abierto.
 
-En PowerShell, dentro de esta carpeta:
+Haz doble clic en **`arrancar.bat`**. Espera a que Docker esté listo, construye y arranca la app y abre **http://localhost:3000**. La primera vez crea el archivo `.env` con una contraseña nueva al azar y te la enseña: apúntala (queda guardada en `.env`, en `APP_PASSWORD`). También programa la copia de seguridad diaria (ver abajo). Si la app no llega a arrancar, te lo dice y deja los detalles en `app.log`. Para pararla, **`parar.bat`**.
 
-```powershell
-# Solo la primera vez, si no tienes .env (ya viene uno creado):
-copy .env.example .env
+Si creas el `.env` a mano copiando `.env.example`, cambia `APP_PASSWORD` y `AUTH_SECRET`. Si se quedan vacíos, con los valores de ejemplo o son demasiado cortos (la contraseña necesita al menos 8 caracteres y `AUTH_SECRET`, 32), `arrancar.bat` los cambia por unos nuevos y te enseña la contraseña.
 
-docker compose up -d --build
-```
-
-Abre **http://localhost:3000** y entra con la contraseña que pone `APP_PASSWORD` en el archivo `.env`.
+Desde PowerShell, dentro de esta carpeta:
 
 | Para…                         | Comando                                   |
 | ----------------------------- | ----------------------------------------- |
+| Arrancar (con el `.env` ya creado) | `docker compose up -d --build`       |
 | Ver los logs                  | `docker compose logs -f app`              |
 | Parar                         | `docker compose down`                     |
 | Actualizar tras cambiar código | `docker compose up -d --build`           |
@@ -58,9 +55,13 @@ Los datos se guardan en el volumen `datos_postgres` y no se pierden al parar ni 
 
 ### Copia de seguridad
 
-Haz doble clic en **`copia.bat`** (con la app arrancada). Guarda un archivo `vapers-AAAA-MM-DD_HHMM.dump` en la carpeta `copias`, con todo: ventas, compras, stock, catálogo y fotos. Conserva los últimos 30 días y borra las copias más antiguas. El resultado de cada copia queda anotado en `copias\copias.log`.
+Haz doble clic en **`copia.bat`**. Guarda un archivo `vapers-AAAA-MM-DD_HHMMSS.dump` en la carpeta `copias`, con todo: ventas, compras, stock, catálogo y fotos, y comprueba que se puede leer. Conserva los últimos 30 días y borra las copias más antiguas. El resultado de cada copia queda anotado en `copias\copias.log`.
 
-Una tarea del Programador de tareas de Windows (**Gestion Vapers - copia diaria**) la hace sola todos los días a las 21:30. Si el PC está apagado a esa hora, la copia se hace la próxima vez que lo enciendas. Si Docker no está arrancado, la copia falla y queda anotado en `copias\copias.log`.
+Una tarea del Programador de tareas de Windows (**Gestion Vapers - copia diaria**) la hace sola todos los días a las 21:30, con la sesión de Windows iniciada (Docker Desktop la necesita). `arrancar.bat` la crea la primera vez; si mueves la carpeta de la app, ejecuta **`programar-copia.bat`** para rehacerla. Si el PC está apagado a esa hora, la copia se hace la próxima vez que lo enciendas.
+
+- Si Docker aún está arrancando, espera hasta 5 minutos.
+- Si la app está parada (con `parar.bat`), arranca solo la base de datos para hacer la copia y luego la vuelve a parar.
+- Si algo falla, queda anotado en `copias\copias.log`.
 
 > La carpeta `copias` está en este mismo disco: te protege de un borrado por error, pero no de que se estropee el PC. Para eso, guarda las copias en otra carpeta (un USB, o una carpeta de OneDrive o Google Drive que se sincronice):
 >
@@ -68,13 +69,15 @@ Una tarea del Programador de tareas de Windows (**Gestion Vapers - copia diaria*
 > .\copia.bat "E:\Copias vapers"
 > ```
 
-**Restaurar una copia.** Esto **sustituye todos los datos actuales** por los de la copia:
+**Restaurar una copia.** Esto **sustituye todos los datos actuales** por los de la copia. Arrastra el archivo de la copia encima de **`restaurar.bat`**, o en PowerShell:
 
 ```powershell
-docker compose cp copias\vapers-2026-11-23_2130.dump db:/tmp/copia.dump
-docker compose exec db pg_restore -U vapers -d vapers --clean --if-exists --no-owner /tmp/copia.dump
-docker compose restart app
+.\restaurar.bat copias\vapers-2026-11-23_213000.dump
 ```
+
+En un PC nuevo, ejecuta antes `arrancar.bat` (crea el `.env`, que no está en las copias ni en Git).
+
+Te pide que escribas `SI` para seguir. Antes guarda los datos actuales en `copias\antes-de-restaurar` (si la base de datos está vacía, no guarda nada). Luego para la app, borra la base de datos, la crea de nuevo vacía, carga la copia y vuelve a arrancar la app. Si la copia es de una versión anterior, al arrancar la app se aplican las migraciones que falten. Si algo sale mal, te dice el nombre exacto de la copia de los datos de antes (también queda en `copias\copias.log`): restáurala con `restaurar.bat` para dejarlo como estaba.
 
 ### Catálogo inicial: Razz Bar 60K
 
@@ -88,7 +91,7 @@ Con Supabase, este catálogo se carga a mano una vez con `npm run db:seed` (ver 
 
 ## 2. Desarrollar (ver los cambios al momento)
 
-Con Node.js 20.9 o superior instalado:
+Con Node.js 20.12 o superior instalado y el archivo `.env` creado (ver el apartado 1; `db:migrate` y `db:seed` leen de ahí `DATABASE_URL`):
 
 ```powershell
 docker compose up -d db      # solo la base de datos (puerto 5433)
@@ -102,7 +105,7 @@ npm run dev                  # http://localhost:3000
 
 1. Edita `lib/db/schema.ts`.
 2. Ejecuta `npm run db:generate`. Se crea un archivo SQL nuevo en `drizzle/`; súbelo a Git.
-3. Ejecuta `npm run db:migrate`. Docker también aplica las migraciones pendientes cada vez que arranca la app.
+3. Ejecuta `npm run db:migrate`. Docker también aplica las migraciones pendientes cada vez que arranca la app; si alguna falla, la app no arranca y el error sale en `docker compose logs app`.
 
 `npm run db:studio` abre un visor de la base de datos en el navegador.
 
@@ -140,7 +143,7 @@ El archivo `.env` (con tu contraseña) **no se sube**: está en `.gitignore`.
    ```
 3. **Vercel:** *Add New → Project*, importa el repositorio de GitHub y añade estas variables de entorno:
    - `DATABASE_URL`: la cadena del **Transaction pooler** (6543)
-   - `APP_PASSWORD`: una contraseña larga
+   - `APP_PASSWORD`: una contraseña larga (como mínimo 8 caracteres)
    - `AUTH_SECRET`: una cadena aleatoria. Genérala con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
    - `APP_TZ`: `Europe/Madrid`
 4. Pulsa **Deploy**. Cada `git push` a `main` vuelve a publicar la app.
@@ -198,6 +201,8 @@ Ahora la app solo se ve desde este PC y la red de la tienda. Para que los client
 - **Servidor pequeño de alquiler** (desde unos 5 €/mes): el mismo Docker funcionando las 24 h.
 
 En los dos casos se apuntan `catalogo.tudominio.es` y `gestion.tudominio.es` a la app, con https. Se puede añadir además un código por email para entrar en `gestion` (Cloudflare Access).
+
+Con el túnel de Cloudflare, pon `CABECERA_IP=cf-connecting-ip` en el archivo `.env` y vuelve a arrancar la app: así toma la IP real de cada visitante de la cabecera que añade Cloudflare (la usa en los límites de reservas y de contraseñas fallidas).
 
 ## Siguientes fases
 
