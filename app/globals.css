@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
-/* Boira: paleta propia (azul petróleo + albaricoque) sobre la estructura visual de FinqCat
+/* Polar: paleta propia (azul petróleo + albaricoque) sobre la estructura visual de FinqCat
    (tarjetas de 26 px, navegación en cápsula, riel flotante, vidrio solo en lo que flota).
 
    Tema: <html data-tema="claro|oscuro">; sin atributo manda el sistema. Todos los colores se escriben con
    light-dark(), así que cambian solos con el tema y no hace falta ninguna clase dark:.
 
    Las pantallas usan las escalas zinc, emerald, red, amber y marca de Tailwind. Aquí se redefinen con la paleta
-   de Boira y se invierten en oscuro: zinc-50/100 son fondos suaves y zinc-900 el texto principal en los dos temas.
+   de Polar y se invierten en oscuro: zinc-50/100 son fondos suaves y zinc-900 el texto principal en los dos temas.
    Para una superficie que debe ser siempre oscura (la cámara del escáner) usa neutral-*, que no se toca.
    bg-superficie es el fondo de tarjetas y campos (blanco en claro). */
 

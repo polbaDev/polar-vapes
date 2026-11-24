@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Boira - arrancando
+title Polar - arrancando
 cd /d "%~dp0"
 
 if not exist ".env" (

@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="marca shrink-0 hover:no-underline">
             <img src="/icon.svg" alt="" className="h-9 w-9" />
             <span className="hidden xl:block">
-              <span className="text-[1.05rem] tracking-[-.02em]">Boira</span>
+              <span className="text-[1.05rem] tracking-[-.02em]">Polar</span>
               <small>{ajustes.nombreTienda}</small>
             </span>
           </Link>

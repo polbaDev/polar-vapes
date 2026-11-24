@@ -19,7 +19,7 @@ export default async function Login() {
         <div className="mb-7 flex flex-col items-center gap-4 text-center">
           <img src="/icon.svg" alt="" className="h-14 w-14" />
           <div>
-            <h1 className="titulo-pagina">Boira</h1>
+            <h1 className="titulo-pagina">Polar</h1>
             <p className="mt-2 text-sm text-zinc-500">{t("Control de compras, ventas y stock")}</p>
           </div>
         </div>

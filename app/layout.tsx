@@ -16,10 +16,10 @@ const publicSans = localFont({
 export async function generateMetadata(): Promise<Metadata> {
   const t = await traductor();
   return {
-    title: { default: "Boira", template: "%s · Boira" },
+    title: { default: "Polar", template: "%s · Polar" },
     description: t("Control de compras, ventas y stock"),
     manifest: "/manifest.webmanifest",
-    appleWebApp: { capable: true, title: "Boira", statusBarStyle: "default" },
+    appleWebApp: { capable: true, title: "Polar", statusBarStyle: "default" },
   };
 }
 
