@@ -32,9 +32,10 @@ export function VerificacionEdad() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center velo p-4" role="dialog" aria-modal="true" aria-labelledby="titulo-edad">
       <div className="tarjeta w-full max-w-sm p-6 text-center shadow-xl">
+        <img src="/sello.svg" alt="PolAr Vapes" className="mx-auto mb-4 h-24 w-24" />
         {estado === "pregunta" ? (
           <>
-            <h2 id="titulo-edad" className="text-lg font-semibold">
+            <h2 id="titulo-edad" className="font-display text-2xl font-semibold">
               {t("Solo para mayores de 18 años")}
             </h2>
             <p className="mt-2 text-sm text-zinc-600">{t("Este catálogo muestra productos con nicotina. ¿Eres mayor de edad?")}</p>
@@ -49,7 +50,7 @@ export function VerificacionEdad() {
           </>
         ) : (
           <>
-            <h2 id="titulo-edad" className="text-lg font-semibold">
+            <h2 id="titulo-edad" className="font-display text-2xl font-semibold">
               {t("Lo sentimos")}
             </h2>
             <p className="mt-2 text-sm text-zinc-600">{t("Este catálogo es solo para mayores de edad.")}</p>
