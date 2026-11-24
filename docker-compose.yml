@@ -31,6 +31,8 @@ services:
       APP_PASSWORD: ${APP_PASSWORD:?Falta APP_PASSWORD en el archivo .env}
       AUTH_SECRET: ${AUTH_SECRET:?Falta AUTH_SECRET en el archivo .env}
       APP_TZ: Europe/Madrid
+      # Cabecera con la IP del visitante (con Cloudflare Tunnel: cf-connecting-ip). Ver .env.example
+      CABECERA_IP: ${CABECERA_IP:-}
     ports:
       - "3000:3000"
 

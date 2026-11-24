@@ -28,5 +28,7 @@ COPY --from=build --chown=node:node /app/scripts ./scripts
 COPY --from=build --chown=node:node /app/datos ./datos
 USER node
 EXPOSE 3000
-# Aplica migraciones pendientes, carga el catálogo inicial (solo si está vacío) y arranca
-CMD ["sh", "-c", "node scripts/migrate.mjs && node scripts/seed.mjs; node_modules/.bin/next start"]
+# Aplica migraciones pendientes (si fallan, el contenedor se para con error), carga el catálogo
+# inicial (solo si está vacío; si falla, la app arranca igual) y arranca la app con exec para que
+# reciba las señales de parada
+CMD ["sh", "-c", "node scripts/migrate.mjs || { echo 'Las migraciones han fallado: la app no arranca.' >&2; exit 1; }; node scripts/seed.mjs || echo 'No se pudo cargar el catálogo inicial; la app arranca igual.' >&2; exec node_modules/.bin/next start"]

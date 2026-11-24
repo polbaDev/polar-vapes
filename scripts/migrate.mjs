@@ -5,6 +5,12 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { fileURLToPath } from "node:url";
 
+// Lee el .env si existe, sin pisar las variables que ya vengan del entorno (en Docker no hay .env).
+// process.loadEnvFile existe desde Node 20.12; sin él no hace nada.
+try {
+  process.loadEnvFile?.(fileURLToPath(new URL("../.env", import.meta.url)));
+} catch {}
+
 const url = process.env.DATABASE_URL_MIGRATIONS || process.env.DATABASE_URL;
 if (!url) {
   console.error("Falta DATABASE_URL");
