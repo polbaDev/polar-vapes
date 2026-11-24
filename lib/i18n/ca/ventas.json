@@ -169,5 +169,13 @@
   "No hay nada que ajustar: el stock ya es ese.": "No hi ha res a ajustar: l'estoc ja és aquest.",
   "Solo hay 1 unidad; no puedes quitar {cantidad}.": "Només hi ha 1 unitat; no en pots treure {cantidad}.",
   "Solo hay {stock} unidades; no puedes quitar {cantidad}.": "Només hi ha {stock} unitats; no en pots treure {cantidad}.",
-  "Ajuste guardado ({cantidad} uds.).": "Ajust desat ({cantidad} u.)."
+  "Ajuste guardado ({cantidad} uds.).": "Ajust desat ({cantidad} u.).",
+  "Espera a que se registre la venta.": "Espera que es registri la venda.",
+  "No se ha podido confirmar el cobro. Comprueba la conexión y pulsa Cobrar otra vez: si ya se había guardado, no se cobrará dos veces.": "No s'ha pogut confirmar el cobrament. Comprova la connexió i torna a prémer Cobrar: si ja s'havia desat, no es cobrarà dues vegades.",
+  "La venta #{id} ya estaba registrada (no se ha cobrado dos veces):": "La venda #{id} ja estava registrada (no s'ha cobrat dues vegades):",
+  "Clave de cobro no válida.": "La clau de cobrament no és vàlida.",
+  "Total no válido.": "El total no és vàlid.",
+  "Los precios han cambiado: el total ahora es {total}. Revisa el ticket y vuelve a cobrar.": "Els preus han canviat: ara el total és {total}. Revisa el tiquet i torna a cobrar.",
+  "No se ha podido cobrar. Recarga la página (puede que tengas que volver a entrar) y, antes de cobrar otra vez, mira en Ventas si se ha guardado.": "No s'ha pogut cobrar. Torna a carregar la pàgina (potser hauràs de tornar a entrar) i, abans de tornar a cobrar, mira a Vendes si s'ha desat.",
+  "Se han quitado del ticket productos que ya no están a la venta.": "S'han tret del tiquet productes que ja no estan a la venda."
 }

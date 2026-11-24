@@ -36,6 +36,13 @@
       "when": 1795472194043,
       "tag": "0004_reservas",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795541232755,
+      "tag": "0005_venta_idempotente",
+      "breakpoints": true
     }
   ]
 }

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { crearVenta } from "@/lib/actions/stock";
 import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
 import { BotonCamara, Escaner, useCamaraDisponible } from "./escaner";
 import { Foto } from "./foto";
 import { useT } from "./preferencias";
+import { redondear } from "@/lib/format";
 import { tx } from "@/lib/i18n";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
@@ -18,6 +19,8 @@ const PAGOS = [
 ];
 // Sin buscar, se enseñan los más vendidos hasta este número
 const MAX_TODOS = 60;
+// Si el cobro no contesta en este tiempo, se da por perdida la respuesta y se desbloquea el ticket
+const ESPERA_COBRO = 20000;
 
 type Linea = { id: number; cantidad: number };
 
@@ -47,6 +50,16 @@ function entregasRapidas(total: number) {
   return [...opciones].sort((a, b) => a - b).slice(0, 4);
 }
 
+// Clave de un intento de cobro. Por http://192.168… (sin https) el navegador no tiene randomUUID.
+function nuevaClave() {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]; reserva?: ReservaEnTpv | null }) {
   const t = useT();
   const router = useRouter();
@@ -62,8 +75,11 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   const [entregado, setEntregado] = useState("");
   const [mayorEdad, setMayorEdad] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState<{ id: number; total: number; cambio: number | null } | null>(null);
-  const [pendiente, startTransition] = useTransition();
+  const [hecho, setHecho] = useState<{ id: number; total: number; cambio: number | null; repetida: boolean } | null>(null);
+  // Sin useTransition: si el cobro se queda colgado, la transición seguiría pendiente aunque venza el plazo
+  const [pendiente, setPendiente] = useState(false);
+  // Último cobro sin confirmar: si se reintenta el mismo ticket, va con la misma clave
+  const intento = useRef<{ clave: string; huella: string } | null>(null);
   const [escaneando, setEscaneando] = useState(false);
   const camara = useCamaraDisponible();
   const buscador = useRef<HTMLInputElement>(null);
@@ -80,6 +96,13 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   }, []);
 
   const porId = useMemo(() => new Map(variantes.map((v) => [v.id, v])), [variantes]);
+
+  // Al recargar el catálogo, lo que ya no está a la venta (desactivado) sale del ticket: no se vería y no se podría cobrar
+  useEffect(() => {
+    if (lineas.every((l) => porId.has(l.id))) return;
+    setLineas((ls) => ls.filter((l) => porId.has(l.id)));
+    setError(t("Se han quitado del ticket productos que ya no están a la venta."));
+  }, [porId]);
 
   // Modelos para los botones de filtro, los que más se venden primero
   const productos = useMemo(() => {
@@ -104,11 +127,17 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
     return { resultados: todos.slice(0, MAX_TODOS), recortados: todos.length > MAX_TODOS };
   }, [variantes, q, producto]);
 
-  const subtotal = lineas.reduce((s, l) => s + l.cantidad * (porId.get(l.id)?.precio ?? 0), 0);
-  const desc = Math.min(Math.max(aNumero(descuento), 0), subtotal);
-  const total = Math.round((subtotal - desc) * 100) / 100;
+  // En céntimos, como lo guarda el servidor (si no, el total podría no cuadrar con el suyo o salir -0,00 €)
+  const subtotal = redondear(lineas.reduce((s, l) => s + l.cantidad * (porId.get(l.id)?.precio ?? 0), 0));
+  const desc = redondear(Math.min(Math.max(aNumero(descuento), 0), subtotal));
+  const total = redondear(subtotal - desc);
   const unidades = lineas.reduce((s, l) => s + l.cantidad, 0);
   const cambio = pago === "efectivo" && entregado ? aNumero(entregado) - total : null;
+
+  // Si el ticket cambia, la clave del último intento ya no vale: otro ticket igual puede ser otra venta
+  useEffect(() => {
+    intento.current = null;
+  }, [lineas, pago, desc, reservaActiva?.id]);
 
   function enTicket(id: number) {
     return lineas.find((l) => l.id === id)?.cantidad ?? 0;
@@ -132,6 +161,8 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   }
 
   function anadir(v: VarianteLigera) {
+    // Mientras se registra la venta el ticket no se toca: lo que se añadiera se perdería al terminar
+    if (pendiente) return false;
     setHecho(null);
     const motivo = motivoNoAnadir(v);
     if (motivo) {
@@ -148,6 +179,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   }
 
   function leerCodigo(codigo: string) {
+    if (pendiente) return t("Espera a que se registre la venta.");
     const v = porCodigo(variantes, codigo);
     if (!v) {
       setError(t("El código {codigo} no está en el catálogo. Puedes añadírselo al sabor en Catálogo.", { codigo }));
@@ -192,34 +224,88 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
     setError(null);
   }
 
-  function cobrar() {
+  async function cobrar() {
+    if (pendiente) return;
     setError(null);
     if (lineas.length === 0) return setError(t("El ticket está vacío."));
     if (!mayorEdad) return setError(t("Marca la casilla de mayor de edad antes de cobrar."));
-    startTransition(async () => {
-      const r = await crearVenta({
-        lineas: lineas.map((l) => ({ varianteId: l.id, cantidad: l.cantidad })),
-        metodoPago: pago,
-        descuento: desc,
-        mayorEdad,
-        reservaId: reservaActiva?.id ?? null,
-      });
-      if (r?.error) {
-        setError(r.error);
-        return;
+    // Mismo ticket que el último intento sin confirmar → misma clave: si aquel se guardó, no se cobra dos veces
+    const huella = JSON.stringify([
+      [...lineas].sort((a, b) => a.id - b.id).map((l) => [l.id, l.cantidad]),
+      pago,
+      desc,
+      reservaActiva?.id ?? null,
+      total,
+    ]);
+    if (intento.current?.huella !== huella) intento.current = { clave: nuevaClave(), huella };
+    const clave = intento.current.clave;
+    setPendiente(true);
+    let r: Awaited<ReturnType<typeof crearVenta>>;
+    // Sin límite, una conexión colgada dejaría el ticket bloqueado en «Registrando…» hasta recargar (y perder la clave).
+    // Next encola las acciones: un reintento espera a que acabe la anterior, y como lleva la misma clave no duplica.
+    let reloj: ReturnType<typeof setTimeout> | undefined;
+    let agotado = false;
+    try {
+      r = await Promise.race([
+        crearVenta({
+          lineas: lineas.map((l) => ({ varianteId: l.id, cantidad: l.cantidad })),
+          metodoPago: pago,
+          descuento: desc,
+          mayorEdad,
+          reservaId: reservaActiva?.id ?? null,
+          clave,
+          totalEsperado: total,
+        }),
+        new Promise<never>((_, rechazar) => {
+          reloj = setTimeout(() => {
+            agotado = true;
+            rechazar(new Error("Sin respuesta"));
+          }, ESPERA_COBRO);
+        }),
+      ]);
+    } catch (e) {
+      // El ticket se queda como está; al volver a cobrar sin tocarlo va la misma clave.
+      if (agotado || e instanceof TypeError) {
+        // Sin respuesta (se ha cortado la wifi o el servidor no contesta): puede que se guardara o no
+        setError(
+          t("No se ha podido confirmar el cobro. Comprueba la conexión y pulsa Cobrar otra vez: si ya se había guardado, no se cobrará dos veces."),
+        );
+      } else {
+        // El servidor ha contestado con un error que no se arregla reintentando: sesión caducada, app actualizada…
+        setError(
+          t("No se ha podido cobrar. Recarga la página (puede que tengas que volver a entrar) y, antes de cobrar otra vez, mira en Ventas si se ha guardado."),
+        );
       }
-      setHecho({ id: r!.id!, total: r!.total ?? total, cambio });
-      if (reservaActiva) {
-        setReservaActiva(null);
-        router.replace("/ventas/nueva");
-      }
-      setLineas([]);
-      setDescuento("");
-      setEntregado("");
-      setMayorEdad(false);
-      setPago("efectivo");
-      buscador.current?.focus();
+      return;
+    } finally {
+      clearTimeout(reloj);
+      setPendiente(false);
+    }
+    if (r?.error) {
+      setError(r.error);
+      // Puede que hayan cambiado precios, stock o la reserva: se recarga el catálogo y el ticket enseña los de ahora
+      router.refresh();
+      return;
+    }
+    intento.current = null;
+    // El cambio sale del total que ha cobrado el servidor
+    const cobrado = r?.total ?? total;
+    setHecho({
+      id: r!.id!,
+      total: cobrado,
+      cambio: pago === "efectivo" && entregado ? aNumero(entregado) - cobrado : null,
+      repetida: Boolean(r?.repetida),
     });
+    if (reservaActiva) {
+      setReservaActiva(null);
+      router.replace("/ventas/nueva");
+    }
+    setLineas([]);
+    setDescuento("");
+    setEntregado("");
+    setMayorEdad(false);
+    setPago("efectivo");
+    buscador.current?.focus();
   }
 
   return (
@@ -273,7 +359,8 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
         {hecho && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
             <span>
-              {t("Venta registrada:")} <strong>{eur.format(hecho.total)}</strong>
+              {hecho.repetida ? t("La venta #{id} ya estaba registrada (no se ha cobrado dos veces):", { id: hecho.id }) : t("Venta registrada:")}{" "}
+              <strong>{eur.format(hecho.total)}</strong>
               {hecho.cambio !== null && hecho.cambio >= 0 && (
                 <>
                   {" "}
@@ -305,7 +392,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                     <button
                       type="button"
                       onClick={() => anadir(v)}
-                      disabled={quedan <= 0 || sinPrecio}
+                      disabled={pendiente || quedan <= 0 || sinPrecio}
                       className="tarjeta flex w-full items-center gap-3 p-2 pr-3 text-left transition hover:border-marca-200 hover:bg-marca-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-superficie"
                     >
                       <Foto id={v.imagenId} color={v.color} alt="" texto={v.sabor} className="h-14 w-14 shrink-0 rounded-lg" />
@@ -363,7 +450,8 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                   setReservaActiva(null);
                   router.replace("/ventas/nueva");
                 }}
-                className="shrink-0 text-xs underline"
+                disabled={pendiente}
+                className="shrink-0 text-xs underline disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {t("Quitar")}
               </button>
@@ -372,7 +460,12 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
             <h2 className="font-semibold">{t("Ticket")}</h2>
             {lineas.length > 0 && (
-              <button type="button" onClick={vaciar} className="text-sm text-zinc-500 hover:text-zinc-800">
+              <button
+                type="button"
+                onClick={vaciar}
+                disabled={pendiente}
+                className="text-sm text-zinc-500 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-zinc-500"
+              >
                 {t("Vaciar")}
               </button>
             )}
@@ -394,11 +487,23 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => cambiarCantidad(l.id, -1)} className="btn-sec h-8 w-8 p-0" aria-label={t("Quitar uno")}>
+                      <button
+                        type="button"
+                        onClick={() => cambiarCantidad(l.id, -1)}
+                        disabled={pendiente}
+                        className="btn-sec h-8 w-8 p-0"
+                        aria-label={t("Quitar uno")}
+                      >
                         −
                       </button>
                       <span className="w-6 text-center tabular-nums">{l.cantidad}</span>
-                      <button type="button" onClick={() => cambiarCantidad(l.id, 1)} className="btn-sec h-8 w-8 p-0" aria-label={t("Añadir uno")}>
+                      <button
+                        type="button"
+                        onClick={() => cambiarCantidad(l.id, 1)}
+                        disabled={pendiente}
+                        className="btn-sec h-8 w-8 p-0"
+                        aria-label={t("Añadir uno")}
+                      >
                         +
                       </button>
                     </div>
@@ -422,6 +527,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                 id="descuento"
                 value={descuento}
                 onChange={(e) => setDescuento(e.target.value)}
+                disabled={pendiente}
                 inputMode="decimal"
                 placeholder="0"
                 className="campo w-24 py-1 text-right"
@@ -440,7 +546,8 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                   role="radio"
                   aria-checked={pago === p.value}
                   onClick={() => setPago(p.value)}
-                  className="py-1.5"
+                  disabled={pendiente}
+                  className="py-1.5 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {t(p.label)}
                 </button>
@@ -457,6 +564,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                     id="entregado"
                     value={entregado}
                     onChange={(e) => setEntregado(e.target.value)}
+                    disabled={pendiente}
                     inputMode="decimal"
                     placeholder="0,00"
                     className="campo w-24 py-1 text-right"
@@ -476,7 +584,8 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                         key={importe}
                         type="button"
                         onClick={() => setEntregado(aTexto(importe))}
-                        className={`flex-1 rounded-md border py-1.5 text-sm font-medium tabular-nums transition ${
+                        disabled={pendiente}
+                        className={`flex-1 rounded-md border py-1.5 text-sm font-medium tabular-nums transition disabled:cursor-not-allowed disabled:opacity-45 ${
                           aNumero(entregado) === importe ? "border-marca-500 bg-marca-50 text-marca-700" : "border-zinc-300 bg-superficie text-zinc-700 hover:bg-zinc-100"
                         }`}
                       >
@@ -489,7 +598,13 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
             )}
 
             <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <input type="checkbox" checked={mayorEdad} onChange={(e) => setMayorEdad(e.target.checked)} className="mt-0.5 h-4 w-4" />
+              <input
+                type="checkbox"
+                checked={mayorEdad}
+                onChange={(e) => setMayorEdad(e.target.checked)}
+                disabled={pendiente}
+                className="mt-0.5 h-4 w-4 disabled:cursor-not-allowed"
+              />
               {t("He comprobado que el cliente es mayor de edad")}
             </label>
 

@@ -19,7 +19,7 @@ import { costeTrasAnularCompra } from "@/lib/coste-calculo";
 import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { exigirSesion } from "@/lib/session";
 import { METODOS_PAGO, MOTIVOS_AJUSTE, valores, etiqueta } from "@/lib/constants";
-import { redondear } from "@/lib/format";
+import { euros, redondear } from "@/lib/format";
 import { tx } from "@/lib/i18n";
 import { traductor } from "@/lib/i18n/servidor";
 import { type Resultado, texto, entero, mensajeError } from "./tipos";
@@ -209,6 +209,10 @@ export type VentaInput = {
   notas?: string | null;
   // Si se cobra una reserva: sus unidades no cuentan como apartadas y la reserva queda vendida
   reservaId?: number | null;
+  // La crea el TPV para cada ticket: si se corta la conexión y se vuelve a cobrar, no se guarda dos veces
+  clave?: string | null;
+  // Total que enseña el TPV: si los precios han cambiado desde entonces, no se cobra
+  totalEsperado?: number | null;
 };
 
 // Por qué no se puede cobrar una reserva que ya no está activa (el estado viene de la base de datos)
@@ -219,10 +223,19 @@ const RESERVA_CERRADA: Record<string, string> = {
 };
 const RESERVA_NO_ACTIVA = tx("Esa reserva ya no está activa. Quita la reserva del ticket para vender sin ella.");
 
-export async function crearVenta(input: VentaInput): Promise<Resultado & { total?: number }> {
+// Venta ya guardada con esa clave (un cobro repetido)
+async function ventaConClave(q: Tx | typeof db, clave: string) {
+  const [v] = await q.select({ id: ventas.id, total: ventas.total }).from(ventas).where(eq(ventas.clave, clave));
+  return v ? { id: v.id, total: Number(v.total) } : null;
+}
+
+export async function crearVenta(input: VentaInput): Promise<Resultado & { total?: number; repetida?: boolean }> {
   await exigirSesion();
   const t = await traductor();
+  const clave = typeof input.clave === "string" && /^[A-Za-z0-9-]{8,64}$/.test(input.clave) ? input.clave : null;
   try {
+    if (input.clave != null && !clave) throw new Error(tx("Clave de cobro no válida."));
+    if (input.totalEsperado != null && !Number.isFinite(input.totalEsperado)) throw new Error(tx("Total no válido."));
     if (!input.mayorEdad) throw new Error(tx("Confirma que has comprobado que el cliente es mayor de edad."));
     if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error(tx("Elige cómo paga el cliente."));
     // Juntamos líneas repetidas del mismo producto
@@ -234,6 +247,9 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
     if (cant.size === 0) throw new Error(tx("El ticket está vacío."));
 
     const res = await db.transaction(async (tx) => {
+      // Reintento de un cobro que ya se guardó (se perdió la respuesta): devolvemos esa venta sin tocar nada
+      const previa = clave ? await ventaConClave(tx, clave) : null;
+      if (previa) return { ...previa, repetida: true };
       const reservaId = input.reservaId || null;
       if (reservaId) {
         const [r] = (await tx.execute(
@@ -271,6 +287,12 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
       subtotal = redondear(subtotal);
       const descuento = redondear(Math.min(Math.max(input.descuento || 0, 0), subtotal));
       const total = redondear(subtotal - descuento);
+      // Se cobra lo que enseña el TPV: si los precios han cambiado mientras estaba abierto, que lo revise
+      if (input.totalEsperado != null && Math.abs(total - input.totalEsperado) > 0.005) {
+        throw new Error(
+          t("Los precios han cambiado: el total ahora es {total}. Revisa el ticket y vuelve a cobrar.", { total: euros(total) }),
+        );
+      }
 
       const [ve] = await tx
         .insert(ventas)
@@ -284,6 +306,7 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           total: total.toFixed(2),
           mayorEdadVerificado: true,
           notas: input.notas?.trim() || null,
+          clave,
         })
         .returning({ id: ventas.id });
 
@@ -303,11 +326,18 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           sql`update reservas set estado = 'vendida', venta_id = ${ve.id}, cerrada_en = now() where id = ${reservaId}`,
         );
       }
-      return { id: ve.id, total };
+      return { id: ve.id, total, repetida: false };
     });
     refrescarStock();
-    return { ok: t("Venta registrada."), id: res.id, total: res.total };
+    return { ok: t("Venta registrada."), id: res.id, total: res.total, repetida: res.repetida };
   } catch (e) {
+    // Dos peticiones del mismo cobro a la vez: la que pierde choca con la clave única (23505) o ya no encuentra
+    // libres el stock o la reserva. Si la otra ya está guardada, es el mismo cobro: devolvemos esa venta.
+    const previa = clave ? await ventaConClave(db, clave).catch(() => null) : null;
+    if (previa) {
+      refrescarStock();
+      return { ok: t("Venta registrada."), ...previa, repetida: true };
+    }
     return { error: mensajeError(e, t) };
   }
 }

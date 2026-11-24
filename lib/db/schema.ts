@@ -165,6 +165,8 @@ export const ventas = pgTable(
     notas: text("notas"),
     anulada: boolean("anulada").notNull().default(false),
     anuladaEn: timestamp("anulada_en", { withTimezone: true }),
+    // La crea el TPV en cada cobro: si se corta la conexión y se vuelve a cobrar, no se guarda dos veces
+    clave: text("clave").unique(),
   },
   (t) => [index("ventas_fecha_idx").on(t.fecha)],
 );
