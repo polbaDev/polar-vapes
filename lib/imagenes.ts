@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { imagenes } from "@/lib/db/schema";
+import { tEs, tx, type T } from "@/lib/i18n";
 
 const MAX_LADO = 900; // px: suficiente para la ficha y ligero para el móvil
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -33,14 +34,15 @@ export async function guardarImagen(entrada: Buffer, origen: string) {
   return fila.id;
 }
 
-export async function descargarImagen(url: string): Promise<Buffer> {
+// Los errores salen en el idioma de `t` (los fijos van marcados con tx y los traduce mensajeError)
+export async function descargarImagen(url: string, t: T = tEs): Promise<Buffer> {
   let u: URL;
   try {
     u = new URL(url);
   } catch {
-    throw new Error("El enlace no es válido.");
+    throw new Error(tx("El enlace no es válido."));
   }
-  if (!["http:", "https:"].includes(u.protocol)) throw new Error("El enlace debe empezar por http(s)://");
+  if (!["http:", "https:"].includes(u.protocol)) throw new Error(tx("El enlace debe empezar por http(s)://"));
   let res: Response;
   try {
     res = await fetch(u, {
@@ -52,18 +54,18 @@ export async function descargarImagen(url: string): Promise<Buffer> {
     signal: AbortSignal.timeout(20000),
   });
   } catch {
-    throw new Error(`No se pudo conectar con ${u.hostname}.`);
+    throw new Error(t("No se pudo conectar con {host}.", { host: u.hostname }));
   }
-  if (!res.ok) throw new Error(`No se pudo descargar la imagen (error ${res.status}).`);
+  if (!res.ok) throw new Error(t("No se pudo descargar la imagen (error {status}).", { status: res.status }));
   const tipo = res.headers.get("content-type") ?? "";
-  if (!tipo.startsWith("image/")) throw new Error("Ese enlace no es una imagen (copia la dirección de la imagen, no de la página).");
+  if (!tipo.startsWith("image/")) throw new Error(tx("Ese enlace no es una imagen (copia la dirección de la imagen, no de la página)."));
   const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length > MAX_BYTES) throw new Error("La imagen es demasiado grande (máx. 15 MB).");
+  if (buf.length > MAX_BYTES) throw new Error(tx("La imagen es demasiado grande (máx. 15 MB)."));
   return buf;
 }
 
-export async function importarImagenDesdeUrl(url: string) {
-  return guardarImagen(await descargarImagen(url), url);
+export async function importarImagenDesdeUrl(url: string, t: T = tEs) {
+  return guardarImagen(await descargarImagen(url, t), url);
 }
 
 // Borra una imagen si ya no la usa ningún producto ni sabor

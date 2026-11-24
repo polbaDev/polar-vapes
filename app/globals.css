@@ -1,60 +1,519 @@
 @import "tailwindcss";
 
+/* Boira: paleta propia (azul petróleo + albaricoque) sobre la estructura visual de FinqCat
+   (tarjetas de 26 px, navegación en cápsula, riel flotante, vidrio solo en lo que flota).
+
+   Tema: <html data-tema="claro|oscuro">; sin atributo manda el sistema. Todos los colores se escriben con
+   light-dark(), así que cambian solos con el tema y no hace falta ninguna clase dark:.
+
+   Las pantallas usan las escalas zinc, emerald, red, amber y marca de Tailwind. Aquí se redefinen con la paleta
+   de Boira y se invierten en oscuro: zinc-50/100 son fondos suaves y zinc-900 el texto principal en los dos temas.
+   Para una superficie que debe ser siempre oscura (la cámara del escáner) usa neutral-*, que no se toca.
+   bg-superficie es el fondo de tarjetas y campos (blanco en claro). */
+
+/* Propiedades registradas para animar la píldora de la navegación. Fuera de @layer. */
+@property --pill-izq { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --pill-der { syntax: "<length>"; inherits: false; initial-value: 0px; }
+
 @theme {
-  --color-marca-50: #f4f1fe;
-  --color-marca-100: #e8e2fd;
-  --color-marca-200: #d2c7fb;
-  --color-marca-500: #7c5cf0;
-  --color-marca-600: #6a44e4;
-  --color-marca-700: #5a35c8;
-  --color-marca-900: #2f1d6b;
+  --color-marca-50: light-dark(#e9f5f5, #0f2a2c);
+  --color-marca-100: light-dark(#d3ecec, #133437);
+  --color-marca-200: light-dark(#a8d8d8, #1d4b4e);
+  --color-marca-500: light-dark(#178087, #5cc7c0);
+  --color-marca-600: light-dark(#0e6b70, #7fd8d2);
+  --color-marca-700: light-dark(#0a5559, #a6e8e3);
+  --color-marca-900: light-dark(#063235, #d6f5f2);
+
+  --color-zinc-50: light-dark(#f6f9f9, #162124);
+  --color-zinc-100: light-dark(#eef3f3, #1a2528);
+  --color-zinc-200: light-dark(#dfe7e8, #263437);
+  --color-zinc-300: light-dark(#cbd6d8, #36474a);
+  --color-zinc-400: light-dark(#93a2a5, #75878a);
+  --color-zinc-500: light-dark(#5f6f72, #93a5a8);
+  --color-zinc-600: light-dark(#4f5f62, #b7c7c9);
+  --color-zinc-700: light-dark(#3c4a4d, #ccd9da);
+  --color-zinc-800: light-dark(#2a3639, #dde8e9);
+  --color-zinc-900: light-dark(#172326, #e9f2f2);
+  --color-zinc-950: light-dark(#0c1517, #f5fafa);
+
+  --color-emerald-50: light-dark(#e8f6ee, #12301f);
+  --color-emerald-100: light-dark(#d0eedd, #173d28);
+  --color-emerald-200: light-dark(#a8dcbf, #1f5236);
+  --color-emerald-500: light-dark(#22955d, #3fb57c);
+  --color-emerald-600: light-dark(#19784a, #4cc38a);
+  --color-emerald-700: light-dark(#146a40, #6fd3a2);
+  --color-emerald-800: light-dark(#105a36, #8fe0b8);
+  --color-emerald-900: light-dark(#0b4227, #b5ecd0);
+
+  --color-red-50: light-dark(#fdeceb, #3a1714);
+  --color-red-100: light-dark(#fbd9d6, #4a1d19);
+  --color-red-200: light-dark(#f4b7b1, #6a2a24);
+  --color-red-500: light-dark(#d4473c, #e0645a);
+  --color-red-600: light-dark(#b9332a, #f0776c);
+  --color-red-700: light-dark(#9c2a22, #f4948b);
+  --color-red-800: light-dark(#7f221c, #f7b0a9);
+  --color-red-900: light-dark(#5f1914, #fbcdc8);
+
+  --color-amber-50: light-dark(#fff4e0, #34270f);
+  --color-amber-100: light-dark(#ffe9c2, #423212);
+  --color-amber-200: light-dark(#f6d391, #5c4418);
+  --color-amber-500: light-dark(#d98a0b, #d99a2b);
+  --color-amber-600: light-dark(#b36d00, #e2a842);
+  --color-amber-700: light-dark(#9a5b00, #e9b04d);
+  --color-amber-800: light-dark(#7a4700, #f0c675);
+  --color-amber-900: light-dark(#5c3500, #f6dba3);
 }
 
-html {
-  -webkit-tap-highlight-color: transparent;
+@theme inline {
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-superficie: var(--superficie);
+  --color-fondo: var(--fondo);
+  --color-acento: var(--acento);
 }
 
-body {
-  @apply bg-zinc-50 text-zinc-900 antialiased;
-}
+@layer base {
+  :root {
+    color-scheme: light dark;
 
-input[type="number"]::-webkit-inner-spin-button {
-  opacity: 0.4;
+    /* Superficies y texto (≥ 4,5:1 sobre fondo, superficie y tarjeta) */
+    --fondo: light-dark(#f3f7f7, #0a1113);
+    --superficie: light-dark(#ffffff, #121b1e);
+    --superficie-2: light-dark(#eef3f3, #1a2528);
+    --texto: light-dark(#172326, #e9f2f2);
+    --texto-2: light-dark(#4f5f62, #b7c7c9);
+    --texto-3: light-dark(#5f6f72, #93a5a8);
+
+    /* Marca: un primario (azul petróleo) y un único acento (albaricoque) */
+    --primario: light-dark(#0e6b70, #7fd8d2);
+    --primario-hover: light-dark(#0a5559, #a6e8e3);
+    --primario-texto: light-dark(#ffffff, #052628);
+    --acento: #ffb48a;
+    --acento-texto: light-dark(#a2491c, #ffb48a); /* el albaricoque no llega a 3:1 sobre blanco */
+
+    /* Estados */
+    --ok: light-dark(#19784a, #4cc38a);
+    --aviso: light-dark(#9a5b00, #e9b04d);
+    --error: light-dark(#b9332a, #f0776c);
+    --error-suave: light-dark(#fdeceb, #3a1714);
+
+    /* Bordes */
+    --borde: light-dark(#dfe7e8, rgb(255 255 255 / .09));
+    --borde-fuerte: light-dark(#cbd6d8, rgb(255 255 255 / .18));
+    --borde-tarjeta: light-dark(rgb(16 36 40 / .08), rgb(255 255 255 / .08));
+    --borde-campo: light-dark(#7f9295, #6f8386); /* ≥ 3:1: es lo único que delimita un campo */
+
+    /* Capas: la tarjeta es opaca; el vidrio solo va en lo que flota */
+    --tarjeta: light-dark(#ffffff, rgb(18 28 31 / .9));
+    --vidrio-control: light-dark(rgb(255 255 255 / .7), rgb(24 36 40 / .62));
+    --velo-cab: light-dark(rgb(243 247 247 / .72), rgb(10 17 19 / .72));
+    --pop: light-dark(rgb(255 255 255 / .95), rgb(18 27 30 / .95));
+    --filo: inset 0 1px 0 light-dark(rgb(255 255 255 / .9), rgb(255 255 255 / .07));
+    --sombra-flot: 0 18px 44px light-dark(rgb(16 36 40 / .16), rgb(0 0 0 / .55)),
+      0 4px 10px light-dark(rgb(16 36 40 / .06), rgb(0 0 0 / .3));
+    --velo-modal: light-dark(rgb(8 20 22 / .38), rgb(2 6 7 / .66));
+    --filtro-control: blur(18px) saturate(160%);
+    --filtro-pop: blur(28px) saturate(160%);
+
+    /* Forma y medidas */
+    --radio-tarjeta: 26px;
+    --radio-pop: 22px;
+    --radio-campo: 12px;
+    --alto-cab: 64px;
+
+    /* Movimiento */
+    --curva: cubic-bezier(.2, .7, .2, 1);
+  }
+  :root[data-tema="claro"] { color-scheme: light; }
+  :root[data-tema="oscuro"] { color-scheme: dark; }
+  @media (min-width: 1024px) {
+    :root { --alto-cab: 76px; }
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-padding-top: calc(var(--alto-cab) + 16px);
+  }
+  body {
+    min-height: 100dvh;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--texto);
+    background-color: var(--fondo);
+    /* Fondo ambiental: neblina de petróleo y albaricoque, nunca plano */
+    background-image:
+      radial-gradient(70% 55% at 12% 105%, light-dark(rgb(72 176 172 / .18), rgb(14 107 112 / .5)) 0%, transparent 70%),
+      radial-gradient(55% 45% at 78% 100%, light-dark(rgb(255 180 138 / .24), rgb(186 104 64 / .24)) 0%, transparent 70%),
+      radial-gradient(60% 50% at 70% -10%, light-dark(rgb(14 107 112 / .08), rgb(64 108 140 / .3)) 0%, transparent 70%),
+      radial-gradient(40% 35% at 95% 30%, light-dark(rgb(255 180 138 / .12), rgb(127 216 210 / .06)) 0%, transparent 70%);
+    background-attachment: fixed;
+    font-feature-settings: "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { letter-spacing: -.01em; }
+  ::selection { background: light-dark(rgb(14 107 112 / .18), rgb(127 216 210 / .3)); }
+  :focus-visible { outline: 2px solid var(--primario); outline-offset: 2px; }
+  input[type="checkbox"], input[type="radio"] { accent-color: var(--primario); }
+  input[type="number"]::-webkit-inner-spin-button { opacity: .4; }
 }
 
 /* Clases reutilizables */
 @layer components {
+  /* ---------- Formularios ---------- */
   .campo {
-    @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-[15px] outline-none transition focus:border-marca-500 focus:ring-2 focus:ring-marca-100 disabled:bg-zinc-100;
+    width: 100%;
+    border-radius: var(--radio-campo);
+    border: 1px solid var(--borde-campo);
+    background-color: var(--superficie);
+    color: var(--texto);
+    padding: .5rem .75rem;
+    font-size: 15px;
+    line-height: 1.45;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
   }
-  .etiqueta {
-    @apply mb-1 block text-sm font-medium text-zinc-700;
+  .campo::placeholder { color: var(--texto-3); opacity: .75; }
+  .campo:focus { border-color: var(--primario); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primario) 18%, transparent); }
+  .campo:disabled { background-color: var(--superficie-2); color: var(--texto-3); }
+  .etiqueta { display: block; margin-bottom: .35rem; font-size: .86rem; font-weight: 600; color: var(--texto); }
+
+  /* ---------- Botones (píldoras) ---------- */
+  .btn, .btn-sec, .btn-peligro {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: .5rem 1.1rem;
+    font-size: .93rem;
+    font-weight: 600;
+    line-height: 1.4rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s, box-shadow .15s, translate .1s;
   }
+  .btn:active, .btn-sec:active, .btn-peligro:active { translate: 0 1px; }
+  .btn:disabled, .btn-sec:disabled, .btn-peligro:disabled { cursor: not-allowed; opacity: .5; translate: none; }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-marca-600 px-4 py-2 text-[15px] font-medium text-white transition hover:bg-marca-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+    border-color: var(--primario);
+    background-color: var(--primario);
+    color: var(--primario-texto);
+    box-shadow: var(--filo), 0 4px 14px color-mix(in srgb, var(--primario) 24%, transparent);
   }
+  .btn:not(:disabled):hover { border-color: var(--primario-hover); background-color: var(--primario-hover); }
+  .btn:disabled { box-shadow: none; }
+  .btn-ok { border-color: var(--ok); background-color: var(--ok); color: light-dark(#fff, #0b2416); box-shadow: var(--filo), 0 4px 14px color-mix(in srgb, var(--ok) 24%, transparent); }
+  .btn-ok:not(:disabled):hover { border-color: var(--ok); background-color: color-mix(in srgb, var(--ok) 88%, var(--texto)); }
   .btn-sec {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-[15px] font-medium text-zinc-800 transition hover:bg-zinc-100 active:scale-[0.98] disabled:opacity-50;
+    border-color: var(--borde-fuerte);
+    background-color: color-mix(in srgb, var(--texto) 4%, var(--superficie));
+    color: var(--texto);
   }
+  .btn-sec:not(:disabled):hover { background-color: color-mix(in srgb, var(--texto) 9%, var(--superficie)); }
   .btn-peligro {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-[15px] font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50;
+    border-color: color-mix(in srgb, var(--error) 35%, var(--borde));
+    background-color: var(--superficie);
+    color: var(--error);
   }
+  .btn-peligro:not(:disabled):hover { background-color: var(--error-suave); }
+
+  /* Botón redondo con icono (riel, cabecera, menús) */
+  .boton-ico {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 50%;
+    color: var(--texto-3);
+    cursor: pointer;
+    transition: background-color .2s, color .2s;
+  }
+  .boton-ico:hover { background-color: color-mix(in srgb, var(--texto) 8%, transparent); color: var(--texto); }
+  .boton-ico[aria-current="page"] { background-color: color-mix(in srgb, var(--texto) 11%, transparent); color: var(--texto); }
+  .boton-ico--cab { width: 42px; height: 42px; border: 1px solid var(--borde-fuerte); background-color: var(--vidrio-control); color: var(--texto-2); }
+  .boton-ico--primario, .boton-ico--primario[aria-current="page"] { background-color: var(--primario); color: var(--primario-texto); box-shadow: var(--filo), 0 4px 14px color-mix(in srgb, var(--primario) 30%, transparent); }
+  .boton-ico--primario:hover { background-color: var(--primario-hover); color: var(--primario-texto); }
+  .boton-ico--primario[aria-current="page"] { outline: 2px solid color-mix(in srgb, var(--primario) 35%, transparent); outline-offset: 2px; }
+  .boton-ico--tema svg { transition: rotate .5s var(--curva); }
+  .boton-ico--tema:hover svg { rotate: 40deg; }
+
+  /* Filtros en píldora (aria-pressed o aria-current marca el activo) */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    border-radius: 999px;
+    padding: .35rem .9rem;
+    font-size: .87rem;
+    font-weight: 600;
+    color: var(--texto-2);
+    background-color: color-mix(in srgb, var(--texto) 4%, var(--superficie));
+    box-shadow: inset 0 0 0 1px var(--borde);
+    transition: background-color .15s, color .15s;
+  }
+  .chip:hover { color: var(--texto); background-color: color-mix(in srgb, var(--texto) 9%, var(--superficie)); text-decoration: none; }
+  .chip:is([aria-pressed="true"], [aria-current="true"], [aria-current="page"]) {
+    background-color: var(--primario);
+    color: var(--primario-texto);
+    box-shadow: var(--filo);
+  }
+
+  /* Control segmentado: el hijo activo lleva aria-pressed, aria-checked, aria-current o un radio marcado */
+  .segmento {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--texto) 5%, transparent);
+    box-shadow: inset 0 0 0 1px var(--borde);
+  }
+  .segmento > * {
+    border-radius: 999px;
+    padding: .35rem .9rem;
+    font-size: .86rem;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--texto-3);
+    cursor: pointer;
+    transition: background-color .2s, color .2s;
+  }
+  .segmento > *:hover { color: var(--texto); text-decoration: none; }
+  .segmento > :is([aria-pressed="true"], [aria-checked="true"], [aria-current="page"], [aria-current="true"], :has(:checked)) {
+    background-color: color-mix(in srgb, var(--texto) 12%, transparent);
+    color: var(--texto);
+    box-shadow: var(--filo);
+  }
+  .segmento > :has(:focus-visible) { outline: 2px solid var(--primario); outline-offset: 1px; }
+
+  /* Opciones dentro de un menú (tema, idioma): el activo va en el color de marca */
+  .opciones { display: flex; padding: 2px; border-radius: 999px; background-color: color-mix(in srgb, var(--texto) 6%, transparent); }
+  .opciones > button { border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; font-weight: 600; color: var(--texto-2); cursor: pointer; }
+  .opciones > button:hover { color: var(--texto); }
+  .opciones > button[aria-pressed="true"] { background-color: var(--primario); color: var(--primario-texto); }
+
+  /* ---------- Tarjetas ---------- */
   .tarjeta {
-    @apply rounded-xl border border-zinc-200 bg-white;
+    min-width: 0;
+    border: 1px solid var(--borde-tarjeta);
+    border-radius: var(--radio-tarjeta);
+    background-color: var(--tarjeta);
+    box-shadow: var(--filo);
   }
-  .tabla {
-    @apply w-full text-left text-sm;
+  .tarjeta-cab {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem 1rem;
+    padding: 1rem 1.25rem .75rem;
   }
+  .tarjeta-cab h2 { font-size: 1rem; font-weight: 550; }
+
+  /* ---------- Tablas ---------- */
+  .tabla { width: 100%; border-collapse: collapse; text-align: left; font-size: .9rem; }
   .tabla th {
-    @apply border-b border-zinc-200 px-3 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500;
+    padding: .75rem .75rem .5rem;
+    border-bottom: 1px solid var(--borde);
+    font-size: .76rem;
+    font-weight: 550;
+    color: var(--texto-3);
+    white-space: nowrap;
   }
-  .tabla td {
-    @apply border-b border-zinc-100 px-3 py-2.5 align-middle;
+  .tabla td { padding: .7rem .75rem; border-bottom: 1px solid var(--borde); vertical-align: middle; }
+  .tabla :is(th, td):first-child { padding-left: 1.25rem; }
+  .tabla :is(th, td):last-child { padding-right: 1.25rem; }
+  .tabla tr:last-child td { border-bottom: 0; }
+  .tabla tbody tr { transition: background-color .15s; }
+  .tabla tbody tr:hover { background-color: color-mix(in srgb, var(--texto) 3.5%, transparent); }
+
+  .enlace { font-weight: 600; color: var(--primario); }
+  .enlace:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ---------- Avisos y capas ---------- */
+  .contador {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 .3rem;
+    border-radius: 999px;
+    background-color: var(--error);
+    color: light-dark(#fff, #2a0d08);
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1;
   }
-  .tabla tr:last-child td {
-    @apply border-b-0;
+  /* Mostrar algo solo en un tema (decidido por CSS, sin esperar a JavaScript) */
+  .solo-claro { display: contents; }
+  .solo-oscuro { display: none; }
+  :root[data-tema="oscuro"] .solo-claro { display: none; }
+  :root[data-tema="oscuro"] .solo-oscuro { display: contents; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-tema="claro"]) .solo-claro { display: none; }
+    :root:not([data-tema="claro"]) .solo-oscuro { display: contents; }
   }
-  .enlace {
-    @apply font-medium text-marca-700 hover:underline;
+
+  .velo { background-color: var(--velo-modal); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .vidrio {
+    background-color: var(--vidrio-control);
+    box-shadow: var(--filo), 0 0 0 1px var(--borde);
+    -webkit-backdrop-filter: var(--filtro-control);
+    backdrop-filter: var(--filtro-control);
   }
+
+  /* Ventanas flotantes (Popover API) */
+  .pop {
+    margin: 0;
+    padding: 8px;
+    width: min(330px, calc(100vw - 24px));
+    max-height: min(80vh, 560px);
+    overflow: auto;
+    border: 1px solid var(--borde-fuerte);
+    border-radius: var(--radio-pop);
+    background-color: var(--pop);
+    color: var(--texto);
+    box-shadow: var(--sombra-flot);
+    -webkit-backdrop-filter: var(--filtro-pop);
+    backdrop-filter: var(--filtro-pop);
+  }
+  .pop--cab { position: fixed; inset: calc(var(--alto-cab) - 6px) 16px auto auto; }
+  .pop__cab { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
+  .pop__cab b { font-size: .95rem; font-weight: 600; }
+  .pop__cab span { font-size: .78rem; color: var(--texto-3); }
+  .pop__fila { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 10px; font-size: .9rem; }
+  .pop__lista > :is(a, button) {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 14px;
+    font-size: .9rem;
+    text-align: left;
+    color: var(--texto);
+    cursor: pointer;
+  }
+  .pop__lista > :is(a, button):hover { background-color: color-mix(in srgb, var(--texto) 6%, transparent); text-decoration: none; }
+  .pop__sep { height: 1px; margin: 6px 4px; background-color: var(--borde); }
+
+  /* ---------- Estructura ---------- */
+  /* Cabecera: el desenfoque va en ::before para que los menús de dentro puedan desenfocar la página */
+  .cab { position: sticky; top: 0; z-index: 30; }
+  .cab::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-color: var(--velo-cab);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+  }
+  .marca { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 650; letter-spacing: -.01em; color: var(--texto); }
+  .marca small { display: block; font-size: .76rem; font-weight: 500; letter-spacing: 0; color: var(--texto-3); }
+
+  /* Navegación en cápsula con píldora elástica */
+  .cab__nav {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    gap: 2px;
+    padding: 5px;
+    border-radius: 999px;
+    background-color: var(--vidrio-control);
+    box-shadow: var(--filo), 0 0 0 1px var(--borde);
+    -webkit-backdrop-filter: var(--filtro-control);
+    backdrop-filter: var(--filtro-control);
+  }
+  .cab__nav > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 15px;
+    border-radius: 999px;
+    font-size: .92rem;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--texto-2);
+    transition: color .3s;
+  }
+  .cab__nav > a:hover { color: var(--texto); }
+  .cab__nav > a[aria-current="page"] { color: var(--texto); background-color: color-mix(in srgb, var(--texto) 11%, transparent); }
+  .pildora {
+    position: absolute;
+    z-index: -1;
+    top: 5px;
+    bottom: 5px;
+    left: var(--pill-izq);
+    right: var(--pill-der);
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--texto) 11%, transparent);
+    box-shadow: var(--filo);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .con-pildora .pildora { opacity: 1; }
+  .con-pildora > a[aria-current="page"] { background-color: transparent; }
+
+  /* Riel de accesos rápidos: flota a la izquierda en escritorio */
+  .riel {
+    position: fixed;
+    z-index: 25;
+    left: 14px;
+    top: calc(50% + var(--alto-cab) / 2);
+    translate: 0 -50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px;
+    border-radius: 999px;
+  }
+  @media (min-width: 1280px) { .riel { left: 18px; } }
+  .riel__sep { width: 22px; height: 1px; margin: 4px 0; background-color: var(--borde-fuerte); }
+
+  /* Barra inferior del móvil: cápsula de vidrio flotante */
+  .barra-movil {
+    position: fixed;
+    z-index: 25;
+    left: 50%;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    translate: -50% 0;
+    width: min(440px, calc(100vw - 20px));
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    padding: 5px;
+    border-radius: 999px;
+  }
+  .barra-movil > a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 6px 0 5px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--texto-3);
+  }
+  .barra-movil > a[aria-current="page"] { color: var(--texto); background-color: color-mix(in srgb, var(--texto) 11%, transparent); }
+
+  /* Cabecera de página */
+  .titulo-pagina { font-size: clamp(1.75rem, 3vw, 2.4rem); font-weight: 500; line-height: 1.08; letter-spacing: -.035em; }
+  .antetitulo { font-size: .74rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--texto-3); }
+
+  /* Entrada de cada pantalla. Sin fill-mode a propósito: al terminar no queda ningún translate que
+     convierta la capa en bloque contenedor de los elementos fixed (barras del TPV y del catálogo). */
+  @media (prefers-reduced-motion: no-preference) {
+    .entra { animation: entra .5s var(--curva); }
+    .pop:popover-open { animation: pop-entra .2s var(--curva); transform-origin: top right; }
+    .pildora[data-dir="der"] { transition: --pill-der .34s cubic-bezier(.4, 0, .2, 1), --pill-izq .5s cubic-bezier(.5, 0, .1, 1) .05s; }
+    .pildora[data-dir="izq"] { transition: --pill-izq .34s cubic-bezier(.4, 0, .2, 1), --pill-der .5s cubic-bezier(.5, 0, .1, 1) .05s; }
+    ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; }
+  }
+  @keyframes entra { from { opacity: 0; translate: 0 10px; } }
+  @keyframes pop-entra { from { opacity: 0; scale: .96; } }
 }

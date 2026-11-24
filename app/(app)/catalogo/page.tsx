@@ -3,8 +3,10 @@ import { Cabecera, Insignia, Vacio } from "@/components/ui";
 import { Foto } from "@/components/foto";
 import { listarProductos } from "@/lib/queries";
 import { TIPOS_PRODUCTO, etiqueta } from "@/lib/constants";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Productos() {
+  const t = await traductor();
   const productos = await listarProductos();
   const porMarca = new Map<string, typeof productos>();
   for (const p of productos) porMarca.set(p.marca, [...(porMarca.get(p.marca) ?? []), p]);
@@ -12,19 +14,19 @@ export default async function Productos() {
   return (
     <>
       <Cabecera
-        titulo="Productos"
-        subtitulo="Cada producto (marca + modelo) tiene sus sabores, y cada sabor su precio y su stock."
+        titulo={t("Productos")}
+        subtitulo={t("Cada producto (marca + modelo) tiene sus sabores, y cada sabor su precio y su stock.")}
         acciones={
           <Link href="/catalogo/productos/nuevo" className="btn">
-            Nuevo producto
+            {t("Nuevo producto")}
           </Link>
         }
       />
       {productos.length === 0 ? (
         <Vacio>
-          Todavía no hay productos.{" "}
+          {t("Todavía no hay productos.")}{" "}
           <Link href="/catalogo/productos/nuevo" className="enlace">
-            Crea el primero
+            {t("Crea el primero")}
           </Link>
           .
         </Vacio>
@@ -40,17 +42,17 @@ export default async function Productos() {
                       <Foto id={p.imagenId} color={p.color} alt={p.modelo} texto={`${p.marca} ${p.modelo}`} className="h-14 w-14 shrink-0 rounded-lg" ajuste="cover" />
                       <div className="flex-1">
                         <div className="font-medium">
-                          {p.modelo} {!p.activo && <Insignia>Inactivo</Insignia>}
+                          {p.modelo} {!p.activo && <Insignia>{t("Inactivo")}</Insignia>}
                         </div>
                         <div className="text-xs text-zinc-500">
-                          {etiqueta(TIPOS_PRODUCTO, p.tipo)}
-                          {p.caladas ? ` · ${p.caladas} caladas` : ""}
+                          {t(etiqueta(TIPOS_PRODUCTO, p.tipo))}
+                          {p.caladas ? ` · ${t("{n} caladas", { n: p.caladas })}` : ""}
                           {p.ml ? ` · ${Number(p.ml)} ml` : ""}
                         </div>
                       </div>
                       <div className="text-right text-sm text-zinc-500">
-                        <div>{p.variantes} sabores</div>
-                        <div className="text-xs">{p.stock} uds. en stock</div>
+                        <div>{p.variantes === 1 ? t("1 sabor") : t("{n} sabores", { n: p.variantes })}</div>
+                        <div className="text-xs">{t("{n} uds. en stock", { n: p.stock })}</div>
                       </div>
                     </Link>
                   </li>

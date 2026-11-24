@@ -19,7 +19,12 @@ import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { exigirSesion } from "@/lib/session";
 import { METODOS_PAGO, MOTIVOS_AJUSTE, valores, etiqueta } from "@/lib/constants";
 import { redondear } from "@/lib/format";
+import { tx } from "@/lib/i18n";
+import { traductor } from "@/lib/i18n/servidor";
 import { type Resultado, texto, entero, mensajeError } from "./tipos";
+
+// Textos de los throw: los fijos van con tx() y los traduce mensajeError(e, t) al recogerlos; los que llevan
+// variables, y los de dentro de db.transaction (allí `tx` es la transacción), se traducen ya con t().
 
 function refrescarStock() {
   revalidatePath("/", "layout");
@@ -40,13 +45,14 @@ export type CompraInput = {
 
 export async function crearCompra(input: CompraInput): Promise<Resultado> {
   await exigirSesion();
+  const t = await traductor();
   try {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.fecha)) throw new Error("Fecha no válida.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.fecha)) throw new Error(tx("Fecha no válida."));
     const lineas = input.lineas.filter((l) => l.varianteId);
-    if (lineas.length === 0) throw new Error("Añade al menos un producto a la compra.");
+    if (lineas.length === 0) throw new Error(tx("Añade al menos un producto a la compra."));
     for (const l of lineas) {
-      if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error("Las cantidades deben ser números enteros mayores que 0.");
-      if (!Number.isFinite(l.costeUnidad) || l.costeUnidad < 0) throw new Error("Revisa los costes por unidad.");
+      if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error(tx("Las cantidades deben ser números enteros mayores que 0."));
+      if (!Number.isFinite(l.costeUnidad) || l.costeUnidad < 0) throw new Error(tx("Revisa los costes por unidad."));
     }
     const envio = Number.isFinite(input.gastosEnvio) && input.gastosEnvio > 0 ? input.gastosEnvio : 0;
     const subtotal = lineas.reduce((s, l) => s + l.cantidad * l.costeUnidad, 0);
@@ -76,7 +82,7 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
         })
         .returning({ id: compras.id });
 
-      const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId));
+      const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId), undefined, t);
 
       for (const l of lineas) {
         const costeReal = l.costeUnidad * (1 + factor);
@@ -103,24 +109,25 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
       return c.id;
     });
     refrescarStock();
-    return { ok: "Compra registrada. El stock ya está actualizado.", id };
+    return { ok: t("Compra registrada. El stock ya está actualizado."), id };
   } catch (e) {
-    return { error: mensajeError(e) };
+    return { error: mensajeError(e, t) };
   }
 }
 
 export async function anularCompra(_: Resultado, fd: FormData): Promise<Resultado> {
   await exigirSesion();
+  const t = await traductor();
   const id = entero(fd, "id");
-  if (!id) return { error: "Compra no válida." };
-  if (fd.get("confirmar") !== "on") return { error: "Marca la casilla para confirmar." };
+  if (!id) return { error: t("Compra no válida.") };
+  if (fd.get("confirmar") !== "on") return { error: t("Marca la casilla para confirmar.") };
   try {
     await db.transaction(async (tx) => {
       const [c] = await tx.select().from(compras).where(eq(compras.id, id)).for("update");
-      if (!c) throw new Error("La compra no existe.");
-      if (c.anulada) throw new Error("Esta compra ya estaba anulada.");
+      if (!c) throw new Error(t("La compra no existe."));
+      if (c.anulada) throw new Error(t("Esta compra ya estaba anulada."));
       const lineas = await tx.select().from(lineasCompra).where(eq(lineasCompra.compraId, id));
-      const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId));
+      const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId), undefined, t);
 
       // Comprobamos antes de tocar nada que hay unidades suficientes para retirar
       const porVariante = new Map<number, number>();
@@ -129,7 +136,11 @@ export async function anularCompra(_: Resultado, fd: FormData): Promise<Resultad
         const v = estado.get(vid)!;
         if (v.stock < cant) {
           throw new Error(
-            `No se puede anular: de "${v.nombre}" solo quedan ${v.stock} y la compra metió ${cant}. Ajusta el stock primero si hace falta.`,
+            t('No se puede anular: de "{nombre}" solo quedan {stock} y la compra metió {cantidad}. Ajusta el stock primero si hace falta.', {
+              nombre: v.nombre,
+              stock: v.stock,
+              cantidad: cant,
+            }),
           );
         }
       }
@@ -152,10 +163,10 @@ export async function anularCompra(_: Resultado, fd: FormData): Promise<Resultad
       await tx.update(compras).set({ anulada: true, anuladaEn: new Date() }).where(eq(compras.id, id));
     });
   } catch (e) {
-    return { error: mensajeError(e) };
+    return { error: mensajeError(e, t) };
   }
   refrescarStock();
-  return { ok: "Compra anulada y stock retirado." };
+  return { ok: t("Compra anulada y stock retirado.") };
 }
 
 // ======================= VENTAS =======================
@@ -170,18 +181,27 @@ export type VentaInput = {
   reservaId?: number | null;
 };
 
+// Por qué no se puede cobrar una reserva que ya no está activa (el estado viene de la base de datos)
+const RESERVA_CERRADA: Record<string, string> = {
+  vendida: tx("Esa reserva ya está vendida. Quita la reserva del ticket para vender sin ella."),
+  rechazada: tx("Esa reserva ya está rechazada. Quita la reserva del ticket para vender sin ella."),
+  cancelada: tx("Esa reserva ya está cancelada. Quita la reserva del ticket para vender sin ella."),
+};
+const RESERVA_NO_ACTIVA = tx("Esa reserva ya no está activa. Quita la reserva del ticket para vender sin ella.");
+
 export async function crearVenta(input: VentaInput): Promise<Resultado & { total?: number }> {
   await exigirSesion();
+  const t = await traductor();
   try {
-    if (!input.mayorEdad) throw new Error("Confirma que has comprobado que el cliente es mayor de edad.");
-    if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error("Elige cómo paga el cliente.");
+    if (!input.mayorEdad) throw new Error(tx("Confirma que has comprobado que el cliente es mayor de edad."));
+    if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error(tx("Elige cómo paga el cliente."));
     // Juntamos líneas repetidas del mismo producto
     const cant = new Map<number, number>();
     for (const l of input.lineas) {
-      if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error("Cantidades no válidas.");
+      if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error(tx("Cantidades no válidas."));
       cant.set(l.varianteId, (cant.get(l.varianteId) ?? 0) + l.cantidad);
     }
-    if (cant.size === 0) throw new Error("El ticket está vacío.");
+    if (cant.size === 0) throw new Error(tx("El ticket está vacío."));
 
     const res = await db.transaction(async (tx) => {
       const reservaId = input.reservaId || null;
@@ -189,25 +209,31 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
         const [r] = (await tx.execute(
           sql`select estado from reservas where id = ${reservaId} for update`,
         )) as unknown as { estado: string }[];
-        if (!r) throw new Error("La reserva no existe.");
+        if (!r) throw new Error(t("La reserva no existe."));
         if (r.estado !== "pendiente" && r.estado !== "confirmada") {
-          throw new Error(`Esa reserva ya está ${r.estado}. Quita la reserva del ticket para vender sin ella.`);
+          throw new Error(t(RESERVA_CERRADA[r.estado] ?? RESERVA_NO_ACTIVA));
         }
       }
-      const estado = await bloquearVariantes(tx, [...cant.keys()], reservaId);
+      const estado = await bloquearVariantes(tx, [...cant.keys()], reservaId, t);
       let subtotal = 0;
       for (const [vid, c] of cant) {
         const v = estado.get(vid)!;
-        if (!v.activo) throw new Error(`"${v.nombre}" está desactivado.`);
-        if (v.precio <= 0) throw new Error(`"${v.nombre}" no tiene precio de venta. Pónselo en Catálogo.`);
+        if (!v.activo) throw new Error(t('"{nombre}" está desactivado.', { nombre: v.nombre }));
+        if (v.precio <= 0) throw new Error(t('"{nombre}" no tiene precio de venta. Pónselo en Catálogo.', { nombre: v.nombre }));
         const libres = v.stock - v.reservado;
         if (libres < c) {
           throw new Error(
             v.stock <= 0
-              ? `No queda stock de "${v.nombre}". Registra la compra o ajusta el inventario.`
+              ? t('No queda stock de "{nombre}". Registra la compra o ajusta el inventario.', { nombre: v.nombre })
               : v.reservado > 0
-                ? `De "${v.nombre}" quedan ${v.stock}, pero ${v.reservado} están apartadas en reservas.`
-                : `De "${v.nombre}" solo quedan ${v.stock}.`,
+                ? t('De "{nombre}" quedan {stock}, pero {reservado} están apartadas en reservas.', {
+                    nombre: v.nombre,
+                    stock: v.stock,
+                    reservado: v.reservado,
+                  })
+                : v.stock === 1
+                  ? t('De "{nombre}" solo queda 1.', { nombre: v.nombre })
+                  : t('De "{nombre}" solo quedan {stock}.', { nombre: v.nombre, stock: v.stock }),
           );
         }
         subtotal += c * v.precio;
@@ -250,28 +276,31 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
       return { id: ve.id, total };
     });
     refrescarStock();
-    return { ok: "Venta registrada.", id: res.id, total: res.total };
+    return { ok: t("Venta registrada."), id: res.id, total: res.total };
   } catch (e) {
-    return { error: mensajeError(e) };
+    return { error: mensajeError(e, t) };
   }
 }
 
 export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado> {
   await exigirSesion();
+  const t = await traductor();
   const id = entero(fd, "id");
-  if (!id) return { error: "Venta no válida." };
-  if (fd.get("confirmar") !== "on") return { error: "Marca la casilla para confirmar." };
+  if (!id) return { error: t("Venta no válida.") };
+  if (fd.get("confirmar") !== "on") return { error: t("Marca la casilla para confirmar.") };
   try {
     await db.transaction(async (tx) => {
       const [ve] = await tx.select().from(ventas).where(eq(ventas.id, id)).for("update");
-      if (!ve) throw new Error("La venta no existe.");
-      if (ve.anulada) throw new Error("Esta venta ya estaba anulada.");
+      if (!ve) throw new Error(t("La venta no existe."));
+      if (ve.anulada) throw new Error(t("Esta venta ya estaba anulada."));
       const [dev] = await tx.select({ id: devoluciones.id }).from(devoluciones).where(eq(devoluciones.ventaId, id)).limit(1);
       if (dev) {
-        throw new Error("Esta venta ya tiene devoluciones y no se puede anular. Si te devuelven el resto, regístralo como otra devolución.");
+        throw new Error(
+          t("Esta venta ya tiene devoluciones y no se puede anular. Si te devuelven el resto, regístralo como otra devolución."),
+        );
       }
       const lineas = await tx.select().from(lineasVenta).where(eq(lineasVenta.ventaId, id));
-      const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId));
+      const estado = await bloquearVariantes(tx, lineas.map((l) => l.varianteId), undefined, t);
       for (const l of lineas) {
         const v = estado.get(l.varianteId)!;
         const coste = costeTrasEntrada(v.stock, v.coste, l.cantidad, Number(l.costeUnidad));
@@ -289,10 +318,10 @@ export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado
       await tx.update(ventas).set({ anulada: true, anuladaEn: sql`clock_timestamp()` }).where(eq(ventas.id, id));
     });
   } catch (e) {
-    return { error: mensajeError(e) };
+    return { error: mensajeError(e, t) };
   }
   refrescarStock();
-  return { ok: "Venta anulada. Las unidades han vuelto al stock." };
+  return { ok: t("Venta anulada. Las unidades han vuelto al stock.") };
 }
 
 // ======================= DEVOLUCIONES =======================
@@ -307,20 +336,21 @@ export type DevolucionInput = {
 
 export async function crearDevolucion(input: DevolucionInput): Promise<Resultado & { total?: number }> {
   await exigirSesion();
+  const t = await traductor();
   try {
-    if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error("Elige cómo devuelves el dinero.");
-    if (typeof input.vuelveAlStock !== "boolean") throw new Error("Elige si las unidades vuelven al stock.");
+    if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error(tx("Elige cómo devuelves el dinero."));
+    if (typeof input.vuelveAlStock !== "boolean") throw new Error(tx("Elige si las unidades vuelven al stock."));
     const pedidas = new Map<number, number>();
     for (const l of input.lineas) {
-      if (!Number.isInteger(l.cantidad) || l.cantidad < 0) throw new Error("Cantidades no válidas.");
+      if (!Number.isInteger(l.cantidad) || l.cantidad < 0) throw new Error(tx("Cantidades no válidas."));
       if (l.cantidad > 0) pedidas.set(l.lineaVentaId, (pedidas.get(l.lineaVentaId) ?? 0) + l.cantidad);
     }
-    if (pedidas.size === 0) throw new Error("Elige qué unidades te devuelven.");
+    if (pedidas.size === 0) throw new Error(tx("Elige qué unidades te devuelven."));
 
     const res = await db.transaction(async (tx) => {
       const [ve] = await tx.select().from(ventas).where(eq(ventas.id, input.ventaId)).for("update");
-      if (!ve) throw new Error("La venta no existe.");
-      if (ve.anulada) throw new Error("La venta está anulada: no se puede devolver nada.");
+      if (!ve) throw new Error(t("La venta no existe."));
+      if (ve.anulada) throw new Error(t("La venta está anulada: no se puede devolver nada."));
 
       const lineas = (await tx.execute(sql`
         select l.id, l.variante_id as "varianteId", l.cantidad, l.precio_unidad as "precioUnidad", l.coste_unidad as "costeUnidad",
@@ -333,9 +363,14 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
 
       for (const [lid, cant] of pedidas) {
         const l = lineas.find((x) => x.id === lid);
-        if (!l) throw new Error("Esa línea no es de esta venta.");
-        if (cant > l.cantidad - l.devueltas) {
-          throw new Error(`De una de las líneas solo quedan ${l.cantidad - l.devueltas} por devolver.`);
+        if (!l) throw new Error(t("Esa línea no es de esta venta."));
+        const quedan = l.cantidad - l.devueltas;
+        if (cant > quedan) {
+          throw new Error(
+            quedan === 1
+              ? t("De una de las líneas solo queda 1 por devolver.")
+              : t("De una de las líneas solo quedan {n} por devolver.", { n: quedan }),
+          );
         }
       }
 
@@ -364,7 +399,7 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
         .returning({ id: devoluciones.id });
 
       const elegidas = lineas.filter((l) => pedidas.has(l.id));
-      const estado = input.vuelveAlStock ? await bloquearVariantes(tx, elegidas.map((l) => l.varianteId)) : null;
+      const estado = input.vuelveAlStock ? await bloquearVariantes(tx, elegidas.map((l) => l.varianteId), undefined, t) : null;
       for (const l of elegidas) {
         const cant = pedidas.get(l.id)!;
         await tx.insert(lineasDevolucion).values({
@@ -394,9 +429,9 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
       return { id: d.id, total };
     });
     refrescarStock();
-    return { ok: "Devolución registrada.", id: res.id, total: res.total };
+    return { ok: t("Devolución registrada."), id: res.id, total: res.total };
   } catch (e) {
-    return { error: mensajeError(e) };
+    return { error: mensajeError(e, t) };
   }
 }
 
@@ -404,33 +439,41 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
 
 export async function ajustarStock(_: Resultado, fd: FormData): Promise<Resultado> {
   await exigirSesion();
+  const t = await traductor();
   const varianteId = entero(fd, "variante_id");
   const modo = texto(fd, "modo"); // "contado" | "diferencia"
   const valor = entero(fd, "valor");
   const motivo = texto(fd, "motivo");
   const nota = texto(fd, "nota");
-  if (!varianteId) return { error: "Elige un producto." };
-  if (valor === null || Number.isNaN(valor)) return { error: "Escribe un número entero." };
-  if (!valores(MOTIVOS_AJUSTE).includes(motivo)) return { error: "Elige un motivo." };
+  if (!varianteId) return { error: t("Elige un producto.") };
+  if (valor === null || Number.isNaN(valor)) return { error: t("Escribe un número entero.") };
+  if (!valores(MOTIVOS_AJUSTE).includes(motivo)) return { error: t("Elige un motivo.") };
   try {
     const diff = await db.transaction(async (tx) => {
-      const estado = await bloquearVariantes(tx, [varianteId]);
+      const estado = await bloquearVariantes(tx, [varianteId], undefined, t);
       const v = estado.get(varianteId)!;
       const diferencia = modo === "contado" ? valor - v.stock : valor;
-      if (modo === "contado" && valor < 0) throw new Error("El stock contado no puede ser negativo.");
-      if (diferencia === 0) throw new Error("No hay nada que ajustar: el stock ya es ese.");
-      if (v.stock + diferencia < 0) throw new Error(`Solo hay ${v.stock} unidades; no puedes quitar ${-diferencia}.`);
+      if (modo === "contado" && valor < 0) throw new Error(t("El stock contado no puede ser negativo."));
+      if (diferencia === 0) throw new Error(t("No hay nada que ajustar: el stock ya es ese."));
+      if (v.stock + diferencia < 0) {
+        throw new Error(
+          v.stock === 1
+            ? t("Solo hay 1 unidad; no puedes quitar {cantidad}.", { cantidad: -diferencia })
+            : t("Solo hay {stock} unidades; no puedes quitar {cantidad}.", { stock: v.stock, cantidad: -diferencia }),
+        );
+      }
       await tx.insert(movimientosStock).values({
         varianteId,
         tipo: "ajuste",
         cantidad: diferencia,
+        // Se guarda en la base de datos: el motivo queda en castellano
         motivo: [etiqueta(MOTIVOS_AJUSTE, motivo), nota].filter(Boolean).join(" — "),
       });
       return diferencia;
     });
     refrescarStock();
-    return { ok: `Ajuste guardado (${diff > 0 ? "+" : ""}${diff} uds.).` };
+    return { ok: t("Ajuste guardado ({cantidad} uds.).", { cantidad: `${diff > 0 ? "+" : ""}${diff}` }) };
   } catch (e) {
-    return { error: mensajeError(e) };
+    return { error: mensajeError(e, t) };
   }
 }

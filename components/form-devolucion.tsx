@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { crearDevolucion } from "@/lib/actions/stock";
 import { importesDevolucion } from "@/lib/devolucion-calculo";
+import { tx } from "@/lib/i18n";
+import { useT } from "./preferencias";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const PAGOS = [
-  { value: "efectivo", label: "Efectivo" },
-  { value: "tarjeta", label: "Tarjeta" },
-  { value: "bizum", label: "Bizum" },
+  { value: "efectivo", label: tx("Efectivo") },
+  { value: "tarjeta", label: tx("Tarjeta") },
+  { value: "bizum", label: tx("Bizum") },
 ];
 
 export type LineaDevolvible = {
@@ -36,6 +38,7 @@ export function FormDevolucion({
   yaDevuelto: number;
   lineas: LineaDevolvible[];
 }) {
+  const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
@@ -52,6 +55,8 @@ export function FormDevolucion({
     lineas.map((l) => ({ ...l, aDevolver: cantidades[l.id] ?? 0 })),
   );
   const unidades = Object.values(cantidades).reduce((s, n) => s + n, 0);
+  // «efectivo», «tarjeta»… en minúscula, en el idioma de la pantalla
+  const nombrePago = (valor: string) => t(PAGOS.find((p) => p.value === valor)?.label ?? valor).toLowerCase();
 
   function cambiar(l: LineaDevolvible, delta: number) {
     setCantidades((c) => ({ ...c, [l.id]: Math.min(Math.max((c[l.id] ?? 0) + delta, 0), quedan(l)) }));
@@ -59,8 +64,8 @@ export function FormDevolucion({
 
   function enviar() {
     setError(null);
-    if (unidades === 0) return setError("Elige qué unidades te devuelven.");
-    if (!destino) return setError("Elige si vuelven al stock o están defectuosas.");
+    if (unidades === 0) return setError(t("Elige qué unidades te devuelven."));
+    if (!destino) return setError(t("Elige si vuelven al stock o están defectuosas."));
     startTransition(async () => {
       const r = await crearDevolucion({
         ventaId,
@@ -70,7 +75,9 @@ export function FormDevolucion({
         motivo,
       });
       if (r?.error) return setError(r.error);
-      setHecho(`Devolución registrada: devuelve ${eur.format(r?.total ?? importe)} en ${PAGOS.find((p) => p.value === metodo)?.label.toLowerCase()}.`);
+      setHecho(
+        t("Devolución registrada: devuelve {importe} en {metodo}.", { importe: eur.format(r?.total ?? importe), metodo: nombrePago(metodo) }),
+      );
       setCantidades({});
       setDestino("");
       setMotivo("");
@@ -85,11 +92,13 @@ export function FormDevolucion({
         {hecho && <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{hecho}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-semibold">Devolver productos</h2>
-            <p className="mt-0.5 text-sm text-zinc-500">Si el cliente te devuelve una parte. Devuelves su dinero y decides si vuelven al stock.</p>
+            <h2 className="font-semibold">{t("Devolver productos")}</h2>
+            <p className="mt-0.5 text-sm text-zinc-500">
+              {t("Si el cliente te devuelve una parte. Devuelves su dinero y decides si vuelven al stock.")}
+            </p>
           </div>
           <button type="button" onClick={() => { setHecho(null); setAbierto(true); }} className="btn-sec">
-            Registrar devolución
+            {t("Registrar devolución")}
           </button>
         </div>
       </div>
@@ -99,9 +108,9 @@ export function FormDevolucion({
   return (
     <div className="tarjeta mt-6 max-w-2xl overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-        <h2 className="font-semibold">Devolver productos</h2>
+        <h2 className="font-semibold">{t("Devolver productos")}</h2>
         <button type="button" onClick={() => setAbierto(false)} className="text-sm text-zinc-500 hover:text-zinc-800">
-          Cancelar
+          {t("Cancelar")}
         </button>
       </div>
 
@@ -114,15 +123,20 @@ export function FormDevolucion({
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{l.sabor}</div>
                 <div className="text-xs text-zinc-500">
-                  {l.detalle} · {libres === 0 ? "ya devuelto todo" : `se puede devolver ${libres}`}
+                  {l.detalle} ·{" "}
+                  {libres === 0
+                    ? t("ya devuelto todo")
+                    : libres === 1
+                      ? t("se puede devolver 1")
+                      : t("se puede devolver {n}", { n: libres })}
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => cambiar(l, -1)} disabled={n === 0} className="btn-sec h-8 w-8 p-0" aria-label={`Una menos de ${l.sabor}`}>
+                <button type="button" onClick={() => cambiar(l, -1)} disabled={n === 0} className="btn-sec h-8 w-8 p-0" aria-label={t("Una menos de {sabor}", { sabor: l.sabor })}>
                   −
                 </button>
                 <span className="w-6 text-center tabular-nums">{n}</span>
-                <button type="button" onClick={() => cambiar(l, 1)} disabled={n >= libres} className="btn-sec h-8 w-8 p-0" aria-label={`Una más de ${l.sabor}`}>
+                <button type="button" onClick={() => cambiar(l, 1)} disabled={n >= libres} className="btn-sec h-8 w-8 p-0" aria-label={t("Una más de {sabor}", { sabor: l.sabor })}>
                   +
                 </button>
               </div>
@@ -133,28 +147,28 @@ export function FormDevolucion({
 
       <div className="space-y-4 border-t border-zinc-200 bg-zinc-50 px-4 py-4">
         <fieldset>
-          <legend className="etiqueta">¿Qué haces con lo devuelto?</legend>
+          <legend className="etiqueta">{t("¿Qué haces con lo devuelto?")}</legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white p-3 text-sm has-[:checked]:border-marca-500 has-[:checked]:bg-marca-50">
+            <label className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-superficie p-3 text-sm has-[:checked]:border-marca-500 has-[:checked]:bg-marca-50">
               <input type="radio" name="destino" checked={destino === "stock"} onChange={() => setDestino("stock")} className="mt-0.5" />
               <span>
-                <span className="block font-medium">Vuelve al stock</span>
-                <span className="text-zinc-500">Está precintado o en buen estado</span>
+                <span className="block font-medium">{t("Vuelve al stock")}</span>
+                <span className="text-zinc-500">{t("Está precintado o en buen estado")}</span>
               </span>
             </label>
-            <label className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white p-3 text-sm has-[:checked]:border-marca-500 has-[:checked]:bg-marca-50">
+            <label className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-superficie p-3 text-sm has-[:checked]:border-marca-500 has-[:checked]:bg-marca-50">
               <input type="radio" name="destino" checked={destino === "defectuoso"} onChange={() => setDestino("defectuoso")} className="mt-0.5" />
               <span>
-                <span className="block font-medium">Defectuoso</span>
-                <span className="text-zinc-500">No se vuelve a vender; su coste cuenta como pérdida</span>
+                <span className="block font-medium">{t("Defectuoso")}</span>
+                <span className="text-zinc-500">{t("No se vuelve a vender; su coste cuenta como pérdida")}</span>
               </span>
             </label>
           </div>
         </fieldset>
 
         <div>
-          <div className="etiqueta">Devuelves el dinero en</div>
-          <div className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-200/70 p-1" role="radiogroup" aria-label="Cómo devuelves el dinero">
+          <div className="etiqueta">{t("Devuelves el dinero en")}</div>
+          <div className="segmento grid grid-cols-3" role="radiogroup" aria-label={t("Cómo devuelves el dinero")}>
             {PAGOS.map((p) => (
               <button
                 key={p.value}
@@ -162,26 +176,26 @@ export function FormDevolucion({
                 role="radio"
                 aria-checked={metodo === p.value}
                 onClick={() => setMetodo(p.value)}
-                className={`rounded-md py-1.5 text-sm font-medium transition ${metodo === p.value ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"}`}
+                className="py-1.5"
               >
-                {p.label}
+                {t(p.label)}
               </button>
             ))}
           </div>
           {metodo !== metodoPago && (
-            <p className="mt-1 text-xs text-amber-700">La venta se cobró en {PAGOS.find((p) => p.value === metodoPago)?.label.toLowerCase()}.</p>
+            <p className="mt-1 text-xs text-amber-700">{t("La venta se cobró en {metodo}.", { metodo: nombrePago(metodoPago) })}</p>
           )}
         </div>
 
         <div>
           <label className="etiqueta" htmlFor="motivo_devolucion">
-            Motivo <span className="font-normal text-zinc-400">(opcional)</span>
+            {t("Motivo")} <span className="font-normal text-zinc-400">{t("(opcional)")}</span>
           </label>
           <input
             id="motivo_devolucion"
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            placeholder="Ej. no tira, sabor equivocado…"
+            placeholder={t("Ej. no tira, sabor equivocado…")}
             className="campo"
           />
         </div>
@@ -193,9 +207,15 @@ export function FormDevolucion({
         )}
 
         <button type="button" onClick={enviar} disabled={pendiente || unidades === 0} className="btn w-full py-3 text-base">
-          {pendiente ? "Registrando…" : unidades === 0 ? "Elige qué te devuelven" : `Devolver ${eur.format(importe)} (${unidades} uds.)`}
+          {pendiente
+            ? t("Registrando…")
+            : unidades === 0
+              ? t("Elige qué te devuelven")
+              : t("Devolver {importe} ({n} uds.)", { importe: eur.format(importe), n: unidades })}
         </button>
-        {total !== subtotal && <p className="text-center text-xs text-zinc-500">El descuento del ticket se reparte en proporción.</p>}
+        {total !== subtotal && (
+          <p className="text-center text-xs text-zinc-500">{t("El descuento del ticket se reparte en proporción.")}</p>
+        )}
       </div>
     </div>
   );

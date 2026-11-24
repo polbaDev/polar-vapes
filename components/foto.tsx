@@ -38,7 +38,7 @@ export function Foto({
     );
   }
   return (
-    <div className={`overflow-hidden ${className}`} style={{ backgroundColor: tinte(color) ?? "#f4f4f5" }}>
+    <div className={`overflow-hidden ${className}`} style={{ backgroundColor: tinte(color) ?? "var(--color-zinc-100)" }}>
       <img
         src={`/img/${id}`}
         alt={alt}

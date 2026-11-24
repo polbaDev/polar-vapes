@@ -22,6 +22,7 @@ import {
 } from "@/lib/queries";
 import { CATEGORIAS_SABOR, TIPOS_PRODUCTO, etiqueta } from "@/lib/constants";
 import { euros, numero } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Producto({
   params,
@@ -30,6 +31,7 @@ export default async function Producto({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ nuevo?: string; orden?: string }>;
 }) {
+  const t = await traductor();
   const id = Number((await params).id);
   const { nuevo, orden } = await searchParams;
   const producto = Number.isInteger(id) ? await obtenerProducto(id) : null;
@@ -58,12 +60,12 @@ export default async function Producto({
     .split("\n")
     .map((c) => c.trim())
     .filter(Boolean);
-  if (caracteristicas.length === 0 && producto.caladas) caracteristicas.push(`${numero(producto.caladas)} caladas`);
+  if (caracteristicas.length === 0 && producto.caladas) caracteristicas.push(t("{n} caladas", { n: numero(producto.caladas) }));
 
   return (
     <>
       <Link href="/catalogo" className="mb-3 inline-block text-sm text-zinc-500 hover:text-zinc-800">
-        ← Productos
+        ← {t("Productos")}
       </Link>
 
       {/* Cabecera del producto */}
@@ -82,9 +84,9 @@ export default async function Producto({
               {producto.marca} {producto.modelo}
             </h1>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <Insignia tono="marca">{etiqueta(TIPOS_PRODUCTO, producto.tipo)}</Insignia>
+              <Insignia tono="marca">{t(etiqueta(TIPOS_PRODUCTO, producto.tipo))}</Insignia>
               {producto.ml && <Insignia>{Number(producto.ml)} ml</Insignia>}
-              {!producto.activo && <Insignia tono="rojo">Inactivo</Insignia>}
+              {!producto.activo && <Insignia tono="rojo">{t("Inactivo")}</Insignia>}
             </div>
           </div>
           {producto.descripcion && <p className="text-[15px] leading-relaxed text-zinc-600">{producto.descripcion}</p>}
@@ -99,35 +101,37 @@ export default async function Producto({
           )}
           <dl className="grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 sm:grid-cols-4">
             <div>
-              <dt className="text-xs uppercase tracking-wide text-zinc-500">Sabores</dt>
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">{t("Sabores")}</dt>
               <dd className="text-xl font-semibold tabular-nums">{variantes.length}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-zinc-500">En stock</dt>
-              <dd className="text-xl font-semibold tabular-nums">{stockTotal} uds.</dd>
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">{t("En stock")}</dt>
+              <dd className="text-xl font-semibold tabular-nums">{t("{n} uds.", { n: stockTotal })}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-zinc-500">Valor a coste</dt>
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">{t("Valor a coste")}</dt>
               <dd className="text-xl font-semibold tabular-nums">{euros(valorCoste)}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-zinc-500">Vendidas 30 días</dt>
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">{t("Vendidas 30 días")}</dt>
               <dd className="text-xl font-semibold tabular-nums">
                 {vendidas} <span className="text-sm font-normal text-zinc-500">· {euros(facturado)}</span>
               </dd>
             </div>
           </dl>
           <div className="text-sm text-zinc-500">
-            PVP:{" "}
+            {t("PVP:")}{" "}
             {precios.length === 0
-              ? "sin precio"
+              ? t("sin precio")
               : precios.length === 1
                 ? euros(precios[0])
                 : `${euros(Math.min(...precios))} – ${euros(Math.max(...precios))}`}
             {porReponer > 0 && (
               <>
                 {" · "}
-                <span className="font-medium text-amber-700">{porReponer} sabores por reponer</span>
+                <span className="font-medium text-amber-700">
+                  {porReponer === 1 ? t("1 sabor por reponer") : t("{n} sabores por reponer", { n: porReponer })}
+                </span>
               </>
             )}
           </div>
@@ -136,8 +140,11 @@ export default async function Producto({
 
       {sinPrecio > 0 && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {sinPrecio === variantes.length ? "Ningún sabor tiene" : `${sinPrecio} sabores no tienen`} precio de venta todavía. Pónselo
-          aquí debajo para poder venderlos.
+          {sinPrecio === variantes.length
+            ? t("Ningún sabor tiene precio de venta todavía. Pónselo aquí debajo para poder venderlos.")
+            : sinPrecio === 1
+              ? t("1 sabor no tiene precio de venta todavía. Pónselo aquí debajo para poder venderlo.")
+              : t("{n} sabores no tienen precio de venta todavía. Pónselo aquí debajo para poder venderlos.", { n: sinPrecio })}
         </div>
       )}
 
@@ -145,43 +152,47 @@ export default async function Producto({
       <section className="mb-6 grid gap-4 lg:grid-cols-2">
         <FormAccion accion={precioParaTodos} className="tarjeta p-4">
           <input type="hidden" name="producto_id" value={producto.id} />
-          <h2 className="mb-3 font-semibold">Aplicar a todos los sabores</h2>
+          <h2 className="mb-3 font-semibold">{t("Aplicar a todos los sabores")}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="etiqueta" htmlFor="precio_todos">
-                Precio de venta (€)
+                {t("Precio de venta (€)")}
               </label>
-              <input id="precio_todos" name="precio_venta" inputMode="decimal" className="campo" placeholder="p. ej. 15" />
+              <input id="precio_todos" name="precio_venta" inputMode="decimal" className="campo" placeholder={t("p. ej. {n}", { n: 15 })} />
             </div>
             <div>
               <label className="etiqueta" htmlFor="minimo_todos">
-                Avisar cuando queden
+                {t("Avisar cuando queden")}
               </label>
-              <input id="minimo_todos" name="stock_minimo" type="number" min={0} inputMode="numeric" className="campo" placeholder="p. ej. 3" />
+              <input id="minimo_todos" name="stock_minimo" type="number" min={0} inputMode="numeric" className="campo" placeholder={t("p. ej. {n}", { n: 3 })} />
             </div>
           </div>
           <div className="mt-3">
-            <BotonEnviar className="btn-sec">Aplicar a los {variantes.length} sabores</BotonEnviar>
+            <BotonEnviar className="btn-sec">
+              {variantes.length === 1 ? t("Aplicar a 1 sabor") : t("Aplicar a los {n} sabores", { n: variantes.length })}
+            </BotonEnviar>
           </div>
         </FormAccion>
         <div className="tarjeta flex flex-col justify-between gap-3 p-4">
           <div>
-            <h2 className="font-semibold">Movimientos de stock</h2>
-            <p className="mt-1 text-sm text-zinc-500">El stock entra con las compras y sale con las ventas. Para corregirlo, usa un ajuste.</p>
+            <h2 className="font-semibold">{t("Movimientos de stock")}</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              {t("El stock entra con las compras y sale con las ventas. Para corregirlo, usa un ajuste.")}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/compras/nueva" className="btn">
-              Registrar compra
+              {t("Registrar compra")}
             </Link>
             <Link href={`/inventario?q=${encodeURIComponent(producto.modelo)}`} className="btn-sec">
-              Ver en inventario
+              {t("Ver en inventario")}
             </Link>
           </div>
           {pendientes > 0 && (
             <FormAccion accion={descargarImagenesPendientes}>
               <input type="hidden" name="producto_id" value={producto.id} />
-              <BotonEnviar className="btn-sec w-full" textoPendiente="Descargando…">
-                Descargar imágenes en alta ({pendientes})
+              <BotonEnviar className="btn-sec w-full" textoPendiente={t("Descargando…")}>
+                {t("Descargar imágenes en alta ({n})", { n: pendientes })}
               </BotonEnviar>
             </FormAccion>
           )}
@@ -190,25 +201,26 @@ export default async function Producto({
 
       {/* Sabores */}
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-lg font-semibold">Sabores</h2>
+        <h2 className="text-lg font-semibold">{t("Sabores")}</h2>
         <div className="flex gap-1 text-sm">
           {[
-            { v: undefined, t: "A–Z" },
-            { v: "stock", t: "Menos stock" },
-            { v: "ventas", t: "Más vendidos" },
+            { v: undefined, texto: "A–Z" },
+            { v: "stock", texto: t("Menos stock") },
+            { v: "ventas", texto: t("Más vendidos") },
           ].map((o) => (
             <Link
-              key={o.t}
+              key={o.v ?? "az"}
               href={o.v ? `/catalogo/productos/${producto.id}?orden=${o.v}` : `/catalogo/productos/${producto.id}`}
-              className={`rounded-full px-3 py-1 ${orden === o.v ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-100"}`}
+              aria-current={orden === o.v ? "true" : undefined}
+              className="chip"
             >
-              {o.t}
+              {o.texto}
             </Link>
           ))}
         </div>
       </div>
       {lista.length === 0 ? (
-        <Vacio>{nuevo ? "Producto creado. Añade sus sabores aquí debajo." : "Sin sabores todavía."}</Vacio>
+        <Vacio>{nuevo ? t("Producto creado. Añade sus sabores aquí debajo.") : t("Sin sabores todavía.")}</Vacio>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {lista.map((v) => {
@@ -236,12 +248,16 @@ export default async function Producto({
                     {v.descripcionSabor && <div className="line-clamp-2 text-xs text-zinc-500">{v.descripcionSabor}</div>}
                     <div className="mt-auto flex items-end justify-between pt-2">
                       <span className="text-xs text-zinc-500">
-                        {etiqueta(CATEGORIAS_SABOR, v.categoria)} · {v.nicotinaMg} mg
+                        {t(etiqueta(CATEGORIAS_SABOR, v.categoria))} · {v.nicotinaMg} mg
                         <br />
-                        {vend > 0 ? `${vend} vendidas (30 d)` : "sin ventas (30 d)"}
+                        {vend > 0
+                          ? vend === 1
+                            ? t("1 vendida (30 d)")
+                            : t("{n} vendidas (30 d)", { n: vend })
+                          : t("sin ventas (30 d)")}
                       </span>
                       <span className={`font-semibold tabular-nums ${Number(v.precioVenta) > 0 ? "" : "text-amber-700"}`}>
-                        {Number(v.precioVenta) > 0 ? euros(v.precioVenta) : "sin precio"}
+                        {Number(v.precioVenta) > 0 ? euros(v.precioVenta) : t("sin precio")}
                       </span>
                     </div>
                   </div>
@@ -253,44 +269,44 @@ export default async function Producto({
       )}
 
       <details className="tarjeta mt-6" open={variantes.length === 0 || Boolean(nuevo)}>
-        <summary className="cursor-pointer px-4 py-3 font-semibold">Añadir sabor</summary>
+        <summary className="cursor-pointer px-4 py-3 font-semibold">{t("Añadir sabor")}</summary>
         <div className="border-t border-zinc-200 p-4">
           <FormAccion accion={crearVariante} limpiarAlGuardar>
             <input type="hidden" name="producto_id" value={producto.id} />
             <CamposVariante sabores={sabores} />
             <div className="mt-4">
-              <BotonEnviar>Añadir sabor</BotonEnviar>
+              <BotonEnviar>{t("Añadir sabor")}</BotonEnviar>
             </div>
           </FormAccion>
         </div>
       </details>
 
       <details className="tarjeta mt-4">
-        <summary className="cursor-pointer px-4 py-3 font-semibold">Imagen del producto</summary>
+        <summary className="cursor-pointer px-4 py-3 font-semibold">{t("Imagen del producto")}</summary>
         <div className="border-t border-zinc-200 p-4">
           <EditorImagen destino="producto" id={producto.id} tieneImagen={Boolean(producto.imagenId)} />
         </div>
       </details>
 
       <details className="tarjeta mt-4">
-        <summary className="cursor-pointer px-4 py-3 font-semibold">Datos del producto</summary>
+        <summary className="cursor-pointer px-4 py-3 font-semibold">{t("Datos del producto")}</summary>
         <div className="border-t border-zinc-200 p-4">
           <FormAccion accion={editarProducto}>
             <input type="hidden" name="id" value={producto.id} />
             <CamposProducto marcas={marcas} valores={producto} />
             <label className="mt-4 flex items-center gap-2 text-sm">
               <input type="checkbox" name="activo" defaultChecked={producto.activo} className="h-4 w-4" />
-              Activo (desmárcalo si dejas de venderlo; el historial se conserva)
+              {t("Activo (desmárcalo si dejas de venderlo; el historial se conserva)")}
             </label>
             <div className="mt-4">
-              <BotonEnviar>Guardar cambios</BotonEnviar>
+              <BotonEnviar>{t("Guardar cambios")}</BotonEnviar>
             </div>
           </FormAccion>
           {variantes.length === 0 && (
             <FormAccion accion={borrarProducto} className="mt-6 border-t border-zinc-200 pt-4">
               <input type="hidden" name="id" value={producto.id} />
-              <BotonEnviar className="btn-peligro" textoPendiente="Borrando…">
-                Borrar producto
+              <BotonEnviar className="btn-peligro" textoPendiente={t("Borrando…")}>
+                {t("Borrar producto")}
               </BotonEnviar>
             </FormAccion>
           )}

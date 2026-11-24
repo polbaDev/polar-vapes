@@ -2,6 +2,7 @@
 
 import { createContext, useActionState, useContext, useEffect, useRef, startTransition, type ReactNode, type FormEvent } from "react";
 import type { Resultado } from "@/lib/actions/tipos";
+import { useT } from "@/components/preferencias";
 
 type Accion = (prev: Resultado, fd: FormData) => Promise<Resultado>;
 
@@ -49,16 +50,17 @@ export function FormAccion({
 export function BotonEnviar({
   children,
   className = "btn",
-  textoPendiente = "Guardando…",
+  textoPendiente,
 }: {
   children: ReactNode;
   className?: string;
   textoPendiente?: string;
 }) {
   const pending = useContext(Pendiente);
+  const t = useT();
   return (
     <button type="submit" className={className} disabled={pending}>
-      {pending ? textoPendiente : children}
+      {pending ? (textoPendiente ?? t("Guardando…")) : children}
     </button>
   );
 }

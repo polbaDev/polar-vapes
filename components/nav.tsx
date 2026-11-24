@@ -2,59 +2,163 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { Icono, type NombreIcono } from "@/components/iconos";
+import { BotonTema, FilasPreferencias, useT } from "@/components/preferencias";
+import { salir } from "@/lib/actions/auth";
+import { tx } from "@/lib/i18n";
 
-const ENLACES = [
-  { href: "/", texto: "Inicio", icono: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" },
-  { href: "/ventas", texto: "Ventas", icono: "M4 4h16v16H4zM8 9h8M8 13h8M8 17h5" },
-  { href: "/ventas/nueva", texto: "Vender", icono: "M12 5v14M5 12h14", destacado: true },
-  { href: "/compras", texto: "Compras", icono: "M3 4h2l2.5 11h11L21 7H7M10 20a1 1 0 1 0 0-.01M18 20a1 1 0 1 0 0-.01" },
-  { href: "/inventario", texto: "Stock", icono: "M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10" },
+type Enlace = { href: string; texto: string; icono: NombreIcono };
+
+// Secciones (textos en castellano: se traducen al pintar)
+const SECCIONES: Enlace[] = [
+  { href: "/", texto: tx("Inicio"), icono: "inicio" },
+  { href: "/ventas", texto: tx("Ventas"), icono: "ticket" },
+  { href: "/compras", texto: tx("Compras"), icono: "camion" },
+  { href: "/inventario", texto: tx("Stock"), icono: "caja" },
+  { href: "/reservas", texto: tx("Reservas"), icono: "pedido" },
+  { href: "/caja", texto: tx("Caja"), icono: "carrito" },
+  { href: "/catalogo", texto: tx("Catálogo"), icono: "tienda" },
+];
+
+// Accesos rápidos del riel (escritorio)
+const RAPIDOS: Enlace[] = [
+  { href: "/ventas/nueva", texto: tx("Vender"), icono: "mas" },
+  { href: "/compras/nueva", texto: tx("Registrar compra"), icono: "camion" },
+  { href: "/compras/pedido", texto: tx("Pedido sugerido"), icono: "pedido" },
+  { href: "/inventario/ajuste", texto: tx("Ajustar stock"), icono: "recuento" },
+  { href: "/catalogo/productos/nuevo", texto: tx("Nuevo producto"), icono: "productoNuevo" },
 ];
 
 function activo(path: string, href: string) {
   if (href === "/") return path === "/";
-  if (href === "/ventas") return path === "/ventas" || /^\/ventas\/\d+/.test(path);
-  return path.startsWith(href);
-}
-
-function Icono({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={d} />
-    </svg>
-  );
+  return path === href || path.startsWith(`${href}/`);
 }
 
 // Número de reservas por confirmar al lado del enlace
 export function Contador({ n }: { n: number }) {
   if (n <= 0) return null;
-  return <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">{n}</span>;
+  return <span className="contador">{n}</span>;
 }
 
-export function NavEscritorio({ pendientes = 0 }: { pendientes?: number }) {
+// Navegación principal en cápsula. La píldora del enlace activo se estira hacia el nuevo:
+// el borde de delante va rápido y el de detrás con retraso (ver .pildora en globals.css).
+export function NavPrincipal({ pendientes = 0 }: { pendientes?: number }) {
   const path = usePathname();
+  const t = useT();
+  const navRef = useRef<HTMLElement>(null);
+  const pildoraRef = useRef<HTMLSpanElement>(null);
+  const anterior = useRef<{ izq: number; der: number } | null>(null);
+  const [conPildora, setConPildora] = useState(false);
+
+  const colocar = useCallback((animar: boolean) => {
+    const nav = navRef.current;
+    const pildora = pildoraRef.current;
+    if (!nav || !pildora) return;
+    const actual = nav.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (!actual) {
+      anterior.current = null;
+      setConPildora(false);
+      return;
+    }
+    const b = { izq: actual.offsetLeft, der: nav.clientWidth - actual.offsetLeft - actual.offsetWidth };
+    const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (animar && anterior.current && !quieto) pildora.dataset.dir = b.izq >= anterior.current.izq ? "der" : "izq";
+    else delete pildora.dataset.dir;
+    pildora.style.setProperty("--pill-izq", `${b.izq}px`);
+    pildora.style.setProperty("--pill-der", `${b.der}px`);
+    anterior.current = b;
+    setConPildora(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    colocar(true);
+  }, [path, pendientes, t, colocar]);
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    // Medir de nuevo cuando cargue la fuente o cambie el tamaño (sin animar)
+    document.fonts?.ready.then(() => colocar(false));
+    const ro = new ResizeObserver(() => colocar(false));
+    ro.observe(nav);
+    return () => ro.disconnect();
+  }, [colocar]);
+
   return (
-    <nav className="hidden items-center gap-1 md:flex">
-      {[
-        ...ENLACES,
-        { href: "/reservas", texto: "Reservas", icono: "" },
-        { href: "/caja", texto: "Caja", icono: "" },
-        { href: "/catalogo", texto: "Catálogo", icono: "" },
-      ].map((e) =>
-        "destacado" in e && e.destacado ? (
-          <Link key={e.href} href={e.href} className="btn ml-1 mr-1 py-1.5">
-            + Vender
+    <nav ref={navRef} className={`cab__nav mx-auto hidden lg:flex ${conPildora ? "con-pildora" : ""}`} aria-label={t("Navegación principal")}>
+      {SECCIONES.map((e) => (
+        <Link key={e.href} href={e.href} aria-current={activo(path, e.href) ? "page" : undefined}>
+          {t(e.texto)}
+          {e.href === "/reservas" && <Contador n={pendientes} />}
+        </Link>
+      ))}
+      <span ref={pildoraRef} className="pildora" aria-hidden />
+    </nav>
+  );
+}
+
+// En móvil, las secciones que no caben en la barra de abajo van arriba, en una cápsula pequeña
+export function NavSecundariaMovil({ pendientes = 0 }: { pendientes?: number }) {
+  const path = usePathname();
+  const t = useT();
+  return (
+    <nav className="segmento ml-auto vidrio lg:hidden" aria-label={t("Más secciones")}>
+      {SECCIONES.slice(4).map((e) => (
+        <Link key={e.href} href={e.href} aria-current={activo(path, e.href) ? "page" : undefined} className="inline-flex items-center !px-2.5 sm:!px-3.5">
+          {t(e.texto)}
+          {e.href === "/reservas" && <Contador n={pendientes} />}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+// Riel flotante de accesos rápidos (escritorio), con el cambio de tema al final
+export function Riel() {
+  const path = usePathname();
+  const t = useT();
+  return (
+    <nav className="riel vidrio hidden lg:flex" aria-label={t("Accesos rápidos")}>
+      {RAPIDOS.map((e, i) => (
+        <Link
+          key={e.href}
+          href={e.href}
+          title={t(e.texto)}
+          aria-label={t(e.texto)}
+          aria-current={path === e.href ? "page" : undefined}
+          className={`boton-ico ${i === 0 ? "boton-ico--primario" : ""}`}
+        >
+          <Icono nombre={e.icono} />
+        </Link>
+      ))}
+      <span className="riel__sep" />
+      <Link href="/ajustes" title={t("Ajustes del catálogo")} aria-label={t("Ajustes del catálogo")} aria-current={path === "/ajustes" ? "page" : undefined} className="boton-ico">
+        <Icono nombre="ajustes" />
+      </Link>
+      <BotonTema />
+    </nav>
+  );
+}
+
+// Barra inferior del móvil: cápsula de vidrio con «Vender» en el centro
+export function BarraMovil() {
+  const path = usePathname();
+  const t = useT();
+  const enlaces = [SECCIONES[0], SECCIONES[1], RAPIDOS[0], SECCIONES[2], SECCIONES[3]];
+  return (
+    <nav className="barra-movil vidrio lg:hidden" aria-label={t("Navegación principal")}>
+      {enlaces.map((e) =>
+        e.href === "/ventas/nueva" ? (
+          <Link key={e.href} href={e.href} aria-label={t(e.texto)} className="!py-0">
+            <span className="boton-ico boton-ico--primario h-12 w-12">
+              <Icono nombre="mas" className="h-6 w-6" />
+            </span>
           </Link>
         ) : (
-          <Link
-            key={e.href}
-            href={e.href}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              activo(path, e.href) ? "bg-marca-50 text-marca-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-            }`}
-          >
-            {e.texto}
-            {e.href === "/reservas" && <Contador n={pendientes} />}
+          <Link key={e.href} href={e.href} aria-current={activo(path, e.href) && path !== "/ventas/nueva" ? "page" : undefined}>
+            <Icono nombre={e.icono} className="h-5 w-5" />
+            {t(e.texto)}
           </Link>
         ),
       )}
@@ -62,32 +166,57 @@ export function NavEscritorio({ pendientes = 0 }: { pendientes?: number }) {
   );
 }
 
-export function NavMovil() {
-  const path = usePathname();
+function iniciales(nombre: string) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-5">
-        {ENLACES.map((e) =>
-          e.destacado ? (
-            <Link key={e.href} href={e.href} className="flex flex-col items-center justify-center py-1.5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-marca-600 text-white shadow-sm">
-                <Icono d={e.icono} />
-              </span>
-            </Link>
-          ) : (
-            <Link
-              key={e.href}
-              href={e.href}
-              className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${
-                activo(path, e.href) ? "text-marca-700" : "text-zinc-500"
-              }`}
-            >
-              <Icono d={e.icono} />
-              {e.texto}
-            </Link>
-          ),
-        )}
+    nombre
+      .split(/\s+/)
+      .filter((p) => /^\p{L}/u.test(p))
+      .slice(0, 2)
+      .map((p) => p[0]!.toUpperCase())
+      .join("") || "GV"
+  );
+}
+
+// Menú de la tienda: tema, idioma, ajustes y salir
+export function MenuUsuario({ nombreTienda }: { nombreTienda: string }) {
+  const t = useT();
+  const cerrar = () => document.getElementById("menu-usuario")?.hidePopover();
+  return (
+    <>
+      <button
+        type="button"
+        popoverTarget="menu-usuario"
+        className="boton-ico boton-ico--cab"
+        title={t("Menú")}
+        aria-label={t("Menú")}
+      >
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-acento text-[.72rem] font-bold text-[#3d1a06]">{iniciales(nombreTienda)}</span>
+      </button>
+      <div id="menu-usuario" popover="auto" className="pop pop--cab">
+        <div className="pop__cab">
+          <b>{nombreTienda}</b>
+          <span>{t("Gestión de la tienda")}</span>
+        </div>
+        <FilasPreferencias />
+        <div className="pop__sep" />
+        <div className="pop__lista">
+          <Link href="/ajustes" onClick={cerrar}>
+            <Icono nombre="ajustes" className="h-[15px] w-[15px]" />
+            {t("Ajustes del catálogo")}
+          </Link>
+          <a href="/tienda" target="_blank" rel="noopener" onClick={cerrar}>
+            <Icono nombre="tienda" className="h-[15px] w-[15px]" />
+            {t("Ver el catálogo público")}
+          </a>
+        </div>
+        <div className="pop__sep" />
+        <form action={salir} className="pop__lista">
+          <button type="submit">
+            <Icono nombre="salir" className="h-[15px] w-[15px]" />
+            {t("Salir")}
+          </button>
+        </form>
       </div>
-    </nav>
+    </>
   );
 }

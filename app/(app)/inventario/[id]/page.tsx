@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cabecera, Dato, Vacio } from "@/components/ui";
 import { movimientosDeVariante, obtenerVariante } from "@/lib/queries";
-import { TIPOS_MOVIMIENTO } from "@/lib/constants";
+import { MOTIVOS_AJUSTE, TIPOS_MOVIMIENTO } from "@/lib/constants";
 import { euros, fechaHora } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Movimientos({ params }: { params: Promise<{ id: string }> }) {
+  const t = await traductor();
   const id = Number((await params).id);
   const v = Number.isInteger(id) ? await obtenerVariante(id) : null;
   if (!v) notFound();
@@ -23,55 +25,55 @@ export default async function Movimientos({ params }: { params: Promise<{ id: st
       <Cabecera
         titulo={`${v.sabor} · ${v.nicotinaMg} mg`}
         subtitulo={`${v.marca} ${v.modelo}`}
-        volver={{ href: "/inventario", texto: "Inventario" }}
+        volver={{ href: "/inventario", texto: t("Inventario") }}
         acciones={
           <>
             <Link href={`/catalogo/variantes/${v.id}`} className="btn-sec">
-              Editar
+              {t("Editar")}
             </Link>
             <Link href={`/inventario/ajuste?variante=${v.id}`} className="btn">
-              Ajustar stock
+              {t("Ajustar stock")}
             </Link>
           </>
         }
       />
-      <div className="mb-6 grid grid-cols-3 gap-3">
-        <Dato etiqueta="Stock" valor={v.stock} detalle={`Mínimo ${v.stockMinimo}`} />
-        <Dato etiqueta="Precio" valor={euros(v.precioVenta)} />
-        <Dato etiqueta="Coste medio" valor={Number(v.costeMedio) > 0 ? euros(v.costeMedio) : "—"} />
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 [&>:last-child]:col-span-2 sm:[&>:last-child]:col-span-1">
+        <Dato etiqueta={t("Stock")} valor={v.stock} detalle={t("Mínimo {n}", { n: v.stockMinimo })} />
+        <Dato etiqueta={t("Precio")} valor={euros(v.precioVenta)} />
+        <Dato etiqueta={t("Coste medio")} valor={Number(v.costeMedio) > 0 ? euros(v.costeMedio) : "—"} />
       </div>
-      <h2 className="mb-2 font-semibold">Movimientos</h2>
+      <h2 className="mb-2 font-semibold">{t("Movimientos")}</h2>
       {movs.length === 0 ? (
-        <Vacio>Sin movimientos todavía.</Vacio>
+        <Vacio>{t("Sin movimientos todavía.")}</Vacio>
       ) : (
         <div className="tarjeta overflow-x-auto">
           <table className="tabla">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Detalle</th>
-                <th className="text-right">Cantidad</th>
-                <th className="text-right">Saldo</th>
+                <th>{t("Fecha")}</th>
+                <th>{t("Tipo")}</th>
+                <th>{t("Detalle")}</th>
+                <th className="text-right">{t("Cantidad")}</th>
+                <th className="text-right">{t("Saldo")}</th>
               </tr>
             </thead>
             <tbody>
               {conSaldo.map((m) => (
                 <tr key={m.id}>
                   <td className="whitespace-nowrap">{fechaHora(m.fecha)}</td>
-                  <td>{TIPOS_MOVIMIENTO[m.tipo] ?? m.tipo}</td>
+                  <td>{t(TIPOS_MOVIMIENTO[m.tipo] ?? m.tipo)}</td>
                   <td className="text-zinc-500">
                     {m.ventaId && (
                       <Link href={`/ventas/${m.ventaId}`} className="enlace">
-                        Venta #{m.ventaId}
+                        {t("Venta #{id}", { id: m.ventaId })}
                       </Link>
                     )}
                     {m.compraId && (
                       <Link href={`/compras/${m.compraId}`} className="enlace">
-                        Compra #{m.compraId}
+                        {t("Compra #{id}", { id: m.compraId })}
                       </Link>
                     )}
-                    {m.motivo}
+                    {m.motivo && motivoVisible(m.motivo, t)}
                   </td>
                   <td className={`text-right font-medium tabular-nums ${m.cantidad > 0 ? "text-emerald-700" : "text-red-700"}`}>
                     {m.cantidad > 0 ? `+${m.cantidad}` : m.cantidad}
@@ -85,4 +87,11 @@ export default async function Movimientos({ params }: { params: Promise<{ id: st
       )}
     </>
   );
+}
+
+// El motivo de un ajuste se guarda como «Etiqueta — nota» en castellano: se traduce la etiqueta al mostrarlo
+function motivoVisible(motivo: string, t: (s: string) => string) {
+  const [etiqueta, ...resto] = motivo.split(" — ");
+  if (!MOTIVOS_AJUSTE.some((x) => x.label === etiqueta)) return motivo;
+  return [t(etiqueta), ...resto].join(" — ");
 }

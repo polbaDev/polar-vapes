@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { tx } from "@/lib/i18n";
+import { useT } from "@/components/preferencias";
 
 // Lector de códigos de barras con la cámara, usando el BarcodeDetector del navegador.
 // Funciona en Chrome para Android (y algunos de escritorio). Necesita https o localhost:
@@ -29,9 +31,11 @@ export function useCamaraDisponible() {
   return disponible;
 }
 
-export function BotonCamara({ onClick, etiqueta = "Escanear con la cámara" }: { onClick: () => void; etiqueta?: string }) {
+export function BotonCamara({ onClick, etiqueta }: { onClick: () => void; etiqueta?: string }) {
+  const t = useT();
+  const texto = etiqueta ?? t("Escanear con la cámara");
   return (
-    <button type="button" onClick={onClick} className="btn-sec shrink-0 px-3" aria-label={etiqueta} title={etiqueta}>
+    <button type="button" onClick={onClick} className="btn-sec shrink-0 px-3" aria-label={texto} title={texto}>
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" />
       </svg>
@@ -50,15 +54,19 @@ export function Escaner({
   // continuo: sigue leyendo después de cada código (para el TPV). Si no, se cierra al primero.
   continuo?: boolean;
 }) {
+  const t = useT();
   const video = useRef<HTMLVideoElement>(null);
   const detectar = useRef(alDetectar);
   const cerrar = useRef(alCerrar);
+  const traducir = useRef(t);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Clave del error (en castellano): se traduce al pintarlo
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     detectar.current = alDetectar;
     cerrar.current = alCerrar;
+    traducir.current = t;
   });
 
   useEffect(() => {
@@ -69,11 +77,11 @@ export function Escaner({
 
     async function iniciar() {
       const Clase = claseDetector();
-      if (!Clase) return setError("Este navegador no puede leer códigos con la cámara.");
+      if (!Clase) return setError(tx("Este navegador no puede leer códigos con la cámara."));
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       } catch {
-        return setError("No se pudo abrir la cámara. Revisa que el navegador tenga permiso.");
+        return setError(tx("No se pudo abrir la cámara. Revisa que el navegador tenga permiso."));
       }
       if (parar) return stream.getTracks().forEach((t) => t.stop());
       const v = video.current;
@@ -99,7 +107,8 @@ export function Escaner({
                   cerrar.current();
                   return;
                 }
-                setAviso(mensaje || `Leído: ${d.rawValue}`);
+                const t = traducir.current;
+                setAviso(mensaje || t("Leído: {codigo}", { codigo: d.rawValue }));
               }
             }
           }
@@ -118,17 +127,17 @@ export function Escaner({
   }, [continuo]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-label="Escanear código de barras">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-label={t("Escanear código de barras")}>
       <div className="relative flex-1 overflow-hidden">
         <video ref={video} playsInline muted className="h-full w-full object-cover" />
         <div className="pointer-events-none absolute inset-x-8 top-1/2 h-36 -translate-y-1/2 rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
       </div>
-      <div className="space-y-3 bg-zinc-900 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-center text-white">
+      <div className="space-y-3 bg-neutral-900 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-center text-white">
         <p className={`min-h-5 text-sm ${error ? "text-red-300" : ""}`} aria-live="polite">
-          {error ?? aviso ?? "Apunta al código de barras"}
+          {error ? t(error) : (aviso ?? t("Apunta al código de barras"))}
         </p>
         <button type="button" onClick={alCerrar} className="btn w-full py-3 text-base">
-          {continuo ? "Listo" : "Cancelar"}
+          {continuo ? t("Listo") : t("Cancelar")}
         </button>
       </div>
     </div>
@@ -137,6 +146,7 @@ export function Escaner({
 
 // Campo de código de barras del catálogo con botón para leerlo con la cámara
 export function CampoCodigoBarras({ id, defaultValue }: { id: string; defaultValue: string }) {
+  const t = useT();
   const camara = useCamaraDisponible();
   const [abierto, setAbierto] = useState(false);
   const campo = useRef<HTMLInputElement>(null);
@@ -144,7 +154,7 @@ export function CampoCodigoBarras({ id, defaultValue }: { id: string; defaultVal
     <>
       <div className="flex gap-2">
         <input ref={campo} id={id} name="codigo_barras" className="campo" defaultValue={defaultValue} />
-        {camara && <BotonCamara onClick={() => setAbierto(true)} etiqueta="Leer el código con la cámara" />}
+        {camara && <BotonCamara onClick={() => setAbierto(true)} etiqueta={t("Leer el código con la cámara")} />}
       </div>
       {abierto && (
         <Escaner

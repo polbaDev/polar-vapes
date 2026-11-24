@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { crearCompra } from "@/lib/actions/stock";
 import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
 import { BotonCamara, Escaner, useCamaraDisponible } from "./escaner";
+import { useT } from "./preferencias";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 
@@ -29,6 +30,7 @@ export function FormCompra({
   inicial?: { proveedorId: number | null; lineas: { varianteId: number; cantidad: number }[] };
 }) {
   const router = useRouter();
+  const t = useT();
   const [proveedorId, setProveedorId] = useState(
     inicial?.proveedorId && proveedores.some((p) => p.id === inicial.proveedorId) ? String(inicial.proveedorId) : "",
   );
@@ -75,15 +77,15 @@ export function FormCompra({
   // Con la cámara: si el producto ya está en la compra, suma una unidad a esa línea
   function leerCodigo(codigo: string) {
     const v = porCodigo(variantes, codigo);
-    if (!v) return `No está en el catálogo: ${codigo}`;
+    if (!v) return t("No está en el catálogo: {codigo}", { codigo });
     const existente = lineas.find((l) => l.varianteId === v.id);
     if (existente) {
       const n = (Number.isInteger(aNumero(existente.cantidad)) ? aNumero(existente.cantidad) : 0) + 1;
       editar(existente.key, "cantidad", String(n));
-      return `${v.sabor}: ${n} uds.`;
+      return t("{sabor}: {n} uds.", { sabor: v.sabor, n });
     }
     anadir(v);
-    return `Añadido: ${v.sabor} (${nombreModelo(v)})`;
+    return t("Añadido: {sabor} ({modelo})", { sabor: v.sabor, modelo: nombreModelo(v) });
   }
 
   function editar(key: number, campo: keyof Linea, valor: string) {
@@ -100,15 +102,15 @@ export function FormCompra({
 
   function guardar() {
     setError(null);
-    if (lineas.length === 0) return setError("Añade al menos un producto.");
+    if (lineas.length === 0) return setError(t("Añade al menos un producto."));
     const datos = lineas.map((l) => ({
       varianteId: l.varianteId,
       cantidad: aNumero(l.cantidad),
       costeUnidad: aNumero(l.coste),
       lote: l.lote || null,
     }));
-    if (datos.some((d) => !Number.isInteger(d.cantidad) || d.cantidad <= 0)) return setError("Revisa las cantidades (enteros mayores que 0).");
-    if (datos.some((d) => !Number.isFinite(d.costeUnidad) || d.costeUnidad < 0)) return setError("Pon el coste por unidad de cada línea.");
+    if (datos.some((d) => !Number.isInteger(d.cantidad) || d.cantidad <= 0)) return setError(t("Revisa las cantidades (enteros mayores que 0)."));
+    if (datos.some((d) => !Number.isFinite(d.costeUnidad) || d.costeUnidad < 0)) return setError(t("Pon el coste por unidad de cada línea."));
     startTransition(async () => {
       const r = await crearCompra({
         proveedorId: proveedorId ? Number(proveedorId) : null,
@@ -129,10 +131,10 @@ export function FormCompra({
       <section className="tarjeta grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="etiqueta" htmlFor="proveedor">
-            Proveedor
+            {t("Proveedor")}
           </label>
           <select id="proveedor" className="campo" value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
-            <option value="">— Sin indicar —</option>
+            <option value="">{t("— Sin indicar —")}</option>
             {proveedores.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
@@ -142,19 +144,19 @@ export function FormCompra({
         </div>
         <div>
           <label className="etiqueta" htmlFor="proveedor_nuevo">
-            …o proveedor nuevo
+            {t("…o proveedor nuevo")}
           </label>
           <input id="proveedor_nuevo" className="campo" value={proveedorNuevo} onChange={(e) => setProveedorNuevo(e.target.value)} />
         </div>
         <div>
           <label className="etiqueta" htmlFor="fecha">
-            Fecha
+            {t("Fecha")}
           </label>
           <input id="fecha" type="date" className="campo" value={fecha} onChange={(e) => setFecha(e.target.value)} />
         </div>
         <div>
           <label className="etiqueta" htmlFor="factura">
-            Nº factura <span className="font-normal text-zinc-400">(opcional)</span>
+            {t("Nº factura")} <span className="font-normal text-zinc-400">{t("(opcional)")}</span>
           </label>
           <input id="factura" className="campo" value={factura} onChange={(e) => setFactura(e.target.value)} />
         </div>
@@ -167,13 +169,13 @@ export function FormCompra({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onEnter}
-              placeholder="Añadir producto: busca marca, sabor o escanea el código"
+              placeholder={t("Añadir producto: busca marca, sabor o escanea el código")}
               className="campo"
-              aria-label="Buscar producto para añadir"
+              aria-label={t("Buscar producto para añadir")}
             />
             {camara && <BotonCamara onClick={() => setEscaneando(true)} />}
             {resultados.length > 0 && (
-              <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-80 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
+              <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-80 overflow-auto rounded-lg border border-zinc-200 bg-superficie shadow-lg">
                 {resultados.map((v) => (
                   <li key={v.id}>
                     <button type="button" onClick={() => anadir(v)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-marca-50">
@@ -183,7 +185,7 @@ export function FormCompra({
                           {v.marca} {v.modelo} · {v.nicotinaMg} mg
                         </span>
                       </span>
-                      <span className="text-xs text-zinc-500">stock {v.stock}</span>
+                      <span className="text-xs text-zinc-500">{t("stock {n}", { n: v.stock })}</span>
                     </button>
                   </li>
                 ))}
@@ -191,30 +193,30 @@ export function FormCompra({
             )}
           </div>
           <p className="mt-2 text-xs text-zinc-500">
-            ¿No aparece?{" "}
+            {t("¿No aparece?")}{" "}
             <Link href="/catalogo/productos/nuevo" target="_blank" className="enlace">
-              Créalo en el catálogo
+              {t("Créalo en el catálogo")}
             </Link>{" "}
-            (se abre en otra pestaña) y luego{" "}
+            {t("(se abre en otra pestaña) y luego")}{" "}
             <button type="button" onClick={() => router.refresh()} className="enlace">
-              recarga la lista
+              {t("recarga la lista")}
             </button>
-            . No perderás lo que llevas.
+            . {t("No perderás lo que llevas.")}
           </p>
         </div>
 
         {lineas.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-zinc-400">Todavía no has añadido productos</p>
+          <p className="px-4 py-8 text-center text-sm text-zinc-400">{t("Todavía no has añadido productos")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Producto</th>
-                  <th className="w-24">Cantidad</th>
-                  <th className="w-28">Coste/ud. (€)</th>
-                  <th className="w-32">Lote</th>
-                  <th className="w-28 text-right">Importe</th>
+                  <th>{t("Producto")}</th>
+                  <th className="w-24">{t("Cantidad")}</th>
+                  <th className="w-28">{t("Coste/ud. (€)")}</th>
+                  <th className="w-32">{t("Lote")}</th>
+                  <th className="w-28 text-right">{t("Importe")}</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -230,7 +232,7 @@ export function FormCompra({
                         <div className="font-medium">{v?.sabor ?? `#${l.varianteId}`}</div>
                         <div className="text-xs text-zinc-500">
                           {v?.marca} {v?.modelo} · {v?.nicotinaMg} mg
-                          {factor > 0 && Number.isFinite(p) && <> · coste real {eur.format(p * (1 + factor))}</>}
+                          {factor > 0 && Number.isFinite(p) && <> · {t("coste real {importe}", { importe: eur.format(p * (1 + factor)) })}</>}
                         </div>
                       </td>
                       <td>
@@ -239,7 +241,7 @@ export function FormCompra({
                           onChange={(e) => editar(l.key, "cantidad", e.target.value)}
                           inputMode="numeric"
                           className="campo py-1"
-                          aria-label="Cantidad"
+                          aria-label={t("Cantidad")}
                         />
                       </td>
                       <td>
@@ -249,11 +251,11 @@ export function FormCompra({
                           inputMode="decimal"
                           placeholder="0,00"
                           className="campo py-1"
-                          aria-label="Coste por unidad"
+                          aria-label={t("Coste por unidad")}
                         />
                       </td>
                       <td>
-                        <input value={l.lote} onChange={(e) => editar(l.key, "lote", e.target.value)} className="campo py-1" aria-label="Lote" />
+                        <input value={l.lote} onChange={(e) => editar(l.key, "lote", e.target.value)} className="campo py-1" aria-label={t("Lote")} />
                       </td>
                       <td className="text-right tabular-nums">{eur.format(importe)}</td>
                       <td>
@@ -261,7 +263,7 @@ export function FormCompra({
                           type="button"
                           onClick={() => setLineas((ls) => ls.filter((x) => x.key !== l.key))}
                           className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-red-600"
-                          aria-label="Quitar línea"
+                          aria-label={t("Quitar línea")}
                         >
                           ✕
                         </button>
@@ -278,29 +280,29 @@ export function FormCompra({
           <div className="space-y-3">
             <div>
               <label className="etiqueta" htmlFor="envio">
-                Gastos de envío (€)
+                {t("Gastos de envío (€)")}
               </label>
               <input id="envio" value={envio} onChange={(e) => setEnvio(e.target.value)} inputMode="decimal" placeholder="0,00" className="campo sm:w-40" />
-              <p className="mt-1 text-xs text-zinc-500">Se reparten entre los productos para que el coste y el margen sean reales.</p>
+              <p className="mt-1 text-xs text-zinc-500">{t("Se reparten entre los productos para que el coste y el margen sean reales.")}</p>
             </div>
             <div>
               <label className="etiqueta" htmlFor="notas">
-                Notas
+                {t("Notas")}
               </label>
               <input id="notas" value={notas} onChange={(e) => setNotas(e.target.value)} className="campo" />
             </div>
           </div>
           <div className="flex flex-col justify-end gap-1 text-sm sm:items-end">
             <div className="flex w-full justify-between sm:w-64">
-              <span className="text-zinc-500">Productos ({unidades} uds.)</span>
+              <span className="text-zinc-500">{t("Productos ({n} uds.)", { n: unidades })}</span>
               <span className="tabular-nums">{eur.format(subtotal)}</span>
             </div>
             <div className="flex w-full justify-between sm:w-64">
-              <span className="text-zinc-500">Envío</span>
+              <span className="text-zinc-500">{t("Envío")}</span>
               <span className="tabular-nums">{eur.format(gastos)}</span>
             </div>
             <div className="flex w-full justify-between text-lg font-semibold sm:w-64">
-              <span>Total</span>
+              <span>{t("Total")}</span>
               <span className="tabular-nums">{eur.format(subtotal + gastos)}</span>
             </div>
           </div>
@@ -314,10 +316,10 @@ export function FormCompra({
       )}
       <div className="flex gap-2">
         <button type="button" onClick={guardar} disabled={pendiente} className="btn">
-          {pendiente ? "Guardando…" : "Guardar compra y meter en stock"}
+          {pendiente ? t("Guardando…") : t("Guardar compra y meter en stock")}
         </button>
         <Link href="/compras" className="btn-sec">
-          Cancelar
+          {t("Cancelar")}
         </Link>
       </div>
       {escaneando && <Escaner continuo alDetectar={leerCodigo} alCerrar={() => setEscaneando(false)} />}

@@ -1,8 +1,12 @@
 import { Tpv } from "@/components/tpv";
 import { variantesLigeras } from "@/lib/ligeras";
 import { codigoVisible, detalleReserva } from "@/lib/reservas";
+import { traductor } from "@/lib/i18n/servidor";
 
-export const metadata = { title: "Vender · Gestión Vapers" };
+export async function generateMetadata() {
+  const t = await traductor();
+  return { title: t("Vender") };
+}
 
 // ?reserva=12 → el TPV se abre con esa reserva cargada para cobrarla
 export default async function NuevaVenta({ searchParams }: { searchParams: Promise<{ reserva?: string }> }) {

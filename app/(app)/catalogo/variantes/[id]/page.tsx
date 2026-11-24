@@ -8,8 +8,10 @@ import { CamposVariante } from "@/components/campos-catalogo";
 import { borrarVariante, editarVariante } from "@/lib/actions/catalogo";
 import { listarSabores, obtenerVariante } from "@/lib/queries";
 import { euros } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Variante({ params }: { params: Promise<{ id: string }> }) {
+  const t = await traductor();
   const id = Number((await params).id);
   const v = Number.isInteger(id) ? await obtenerVariante(id) : null;
   if (!v) notFound();
@@ -27,10 +29,10 @@ export default async function Variante({ params }: { params: Promise<{ id: strin
         acciones={
           <>
             <Link href={`/inventario/${v.id}`} className="btn-sec">
-              Movimientos
+              {t("Movimientos")}
             </Link>
             <Link href={`/inventario/ajuste?variante=${v.id}`} className="btn-sec">
-              Ajustar stock
+              {t("Ajustar stock")}
             </Link>
           </>
         }
@@ -45,13 +47,13 @@ export default async function Variante({ params }: { params: Promise<{ id: strin
         <div className="space-y-4">
           {v.descripcionSabor && <p className="text-zinc-600">{v.descripcionSabor}</p>}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Dato etiqueta="Stock" valor={v.stock} detalle={`Aviso en ${v.stockMinimo}`} />
-            <Dato etiqueta="Precio" valor={precio > 0 ? euros(precio) : "—"} />
-            <Dato etiqueta="Coste medio" valor={coste > 0 ? euros(coste) : "—"} />
+            <Dato etiqueta={t("Stock")} valor={v.stock} detalle={t("Aviso en {n}", { n: v.stockMinimo })} />
+            <Dato etiqueta={t("Precio")} valor={precio > 0 ? euros(precio) : "—"} />
+            <Dato etiqueta={t("Coste medio")} valor={coste > 0 ? euros(coste) : "—"} />
             <Dato
-              etiqueta="Margen"
+              etiqueta={t("Margen")}
               valor={margen === null ? "—" : `${margen.toFixed(0)} %`}
-              detalle={coste > 0 && precio > 0 ? `${euros(precio - coste)} por unidad` : undefined}
+              detalle={coste > 0 && precio > 0 ? t("{importe} por unidad", { importe: euros(precio - coste) }) : undefined}
             />
           </div>
         </div>
@@ -61,18 +63,18 @@ export default async function Variante({ params }: { params: Promise<{ id: strin
         <CamposVariante sabores={sabores} valores={v} />
         <label className="mt-4 flex items-center gap-2 text-sm">
           <input type="checkbox" name="activo" defaultChecked={v.activo} className="h-4 w-4" />
-          Activo (si lo desmarcas no aparece al vender ni al comprar)
+          {t("Activo (si lo desmarcas no aparece al vender ni al comprar)")}
         </label>
         <div className="mt-5">
-          <BotonEnviar>Guardar</BotonEnviar>
+          <BotonEnviar>{t("Guardar")}</BotonEnviar>
         </div>
       </FormAccion>
       <FormAccion accion={borrarVariante} className="mt-6">
         <input type="hidden" name="id" value={v.id} />
         <input type="hidden" name="producto_id" value={v.productoId} />
-        <p className="mb-2 text-sm text-zinc-500">Solo se puede borrar si nunca se ha comprado ni vendido. Si no, desactívalo.</p>
-        <BotonEnviar className="btn-peligro" textoPendiente="Borrando…">
-          Borrar este sabor
+        <p className="mb-2 text-sm text-zinc-500">{t("Solo se puede borrar si nunca se ha comprado ni vendido. Si no, desactívalo.")}</p>
+        <BotonEnviar className="btn-peligro" textoPendiente={t("Borrando…")}>
+          {t("Borrar este sabor")}
         </BotonEnviar>
       </FormAccion>
     </>

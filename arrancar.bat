@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Gestion Vapers - arrancando
+title Boira - arrancando
 cd /d "%~dp0"
 
 if not exist ".env" (

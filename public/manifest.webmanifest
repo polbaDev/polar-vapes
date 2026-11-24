@@ -1,9 +1,15 @@
 {
-  "name": "Gestión Vapers",
-  "short_name": "Vapers",
+  "name": "Boira",
+  "short_name": "Boira",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fafafa",
-  "theme_color": "#6a44e4",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "background_color": "#f3f7f7",
+  "theme_color": "#0e6b70",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
 }

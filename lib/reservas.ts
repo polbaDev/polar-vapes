@@ -2,6 +2,7 @@ import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { reservadoSql } from "@/lib/bloqueo";
+import { tEs, tx, type T } from "@/lib/i18n";
 import { nombreModelo } from "@/components/buscador";
 
 async function filas<T>(q: SQL): Promise<T[]> {
@@ -13,13 +14,14 @@ const ESTADO = sql`case when r.estado in ('pendiente', 'confirmada') and r.caduc
 
 export type EstadoReserva = "pendiente" | "confirmada" | "caducada" | "vendida" | "rechazada" | "cancelada";
 
+// Se traducen al pintarlas: t(ETIQUETA_ESTADO[estado])
 export const ETIQUETA_ESTADO: Record<EstadoReserva, string> = {
-  pendiente: "Por confirmar",
-  confirmada: "Confirmada",
-  caducada: "Caducada",
-  vendida: "Vendida",
-  rechazada: "Rechazada",
-  cancelada: "Cancelada",
+  pendiente: tx("Por confirmar"),
+  confirmada: tx("Confirmada"),
+  caducada: tx("Caducada"),
+  vendida: tx("Vendida"),
+  rechazada: tx("Rechazada"),
+  cancelada: tx("Cancelada"),
 };
 
 // Código que ve el cliente: R-XXXXXX
@@ -190,26 +192,34 @@ export async function unidadesReservadas(excluirReserva?: number | null) {
   return new Map(rows.map((r) => [r.varianteId, r.unidades]));
 }
 
-// «quedan 1 h 20 min» / «caducó hace 10 min»
-export function tiempoRestante(hasta: Date | string, ahora = new Date()) {
+// «quedan 1 h 20 min» / «caducó hace 10 min» (en el idioma de `t`)
+export function tiempoRestante(hasta: Date | string, t: T = tEs, ahora = new Date()) {
   const ms = new Date(hasta).getTime() - ahora.getTime();
   const min = Math.round(Math.abs(ms) / 60000);
-  const texto = min < 60 ? `${min} min` : min < 60 * 48 ? `${Math.floor(min / 60)} h ${min % 60 ? `${min % 60} min` : ""}`.trim() : `${Math.round(min / 1440)} días`;
-  return ms > 0 ? `quedan ${texto}` : `caducó hace ${texto}`;
+  const h = Math.floor(min / 60);
+  const texto =
+    min < 60
+      ? t("{n} min", { n: min })
+      : min < 60 * 48
+        ? min % 60
+          ? t("{h} h {m} min", { h, m: min % 60 })
+          : t("{h} h", { h })
+        : t("{n} días", { n: Math.round(min / 1440) });
+  return ms > 0 ? t("quedan {tiempo}", { tiempo: texto }) : t("caducó hace {tiempo}", { tiempo: texto });
 }
 
-// Mensaje para WhatsApp que el cliente te envía
-export function mensajeWhatsApp(r: { codigo: string; nombre: string; lineas: LineaReservaFila[] }) {
+// Mensaje para WhatsApp que el cliente te envía (en el idioma en que ve el catálogo)
+export function mensajeWhatsApp(r: { codigo: string; nombre: string; lineas: LineaReservaFila[] }, t: T = tEs) {
   const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
   const total = r.lineas.reduce((s, l) => s + l.cantidad * Number(l.precioUnidad), 0);
   const lineas = r.lineas.map((l) => `- ${l.cantidad} × ${l.sabor} (${nombreModelo(l)} · ${l.nicotinaMg} mg)`);
   return [
-    "Hola, he hecho una reserva en el catálogo.",
-    `Código: ${codigoVisible(r.codigo)}`,
-    `Nombre: ${r.nombre}`,
+    t("Hola, he hecho una reserva en el catálogo."),
+    t("Código: {codigo}", { codigo: codigoVisible(r.codigo) }),
+    t("Nombre: {nombre}", { nombre: r.nombre }),
     "",
     ...lineas,
     "",
-    `Total: ${eur.format(total)}`,
+    t("Total: {total}", { total: eur.format(total) }),
   ].join("\n");
 }

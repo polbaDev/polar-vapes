@@ -1,9 +1,12 @@
 import { CATEGORIAS_SABOR, TIPOS_PRODUCTO } from "@/lib/constants";
+import { traductor } from "@/lib/i18n/servidor";
 import { CampoCodigoBarras } from "./escaner";
+
+// Componentes de servidor (solo los usan páginas del catálogo): traducen con traductor()
 
 type Marca = { id: number; nombre: string };
 
-export function CamposProducto({
+export async function CamposProducto({
   marcas,
   valores,
 }: {
@@ -18,14 +21,15 @@ export function CamposProducto({
     caracteristicas?: string | null;
   };
 }) {
+  const t = await traductor();
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div>
         <label className="etiqueta" htmlFor="marca_id">
-          Marca
+          {t("Marca")}
         </label>
         <select id="marca_id" name="marca_id" className="campo" defaultValue={valores?.marcaId ?? ""}>
-          <option value="">— Elige —</option>
+          <option value="">{t("— Elige —")}</option>
           {marcas.map((m) => (
             <option key={m.id} value={m.id}>
               {m.nombre}
@@ -35,49 +39,57 @@ export function CamposProducto({
       </div>
       <div>
         <label className="etiqueta" htmlFor="marca_nueva">
-          …o marca nueva
+          {t("…o marca nueva")}
         </label>
-        <input id="marca_nueva" name="marca_nueva" className="campo" placeholder="Escribe para crearla" />
+        <input id="marca_nueva" name="marca_nueva" className="campo" placeholder={t("Escribe para crearla")} />
       </div>
       <div>
         <label className="etiqueta" htmlFor="modelo">
-          Modelo
+          {t("Modelo")}
         </label>
-        <input id="modelo" name="modelo" required className="campo" defaultValue={valores?.modelo} placeholder="Ej. 600, Pro 5000, Pod S" />
+        <input
+          id="modelo"
+          name="modelo"
+          required
+          className="campo"
+          defaultValue={valores?.modelo}
+          placeholder={t("Ej. 600, Pro 5000, Pod S")}
+        />
       </div>
       <div>
         <label className="etiqueta" htmlFor="tipo">
-          Tipo
+          {t("Tipo")}
         </label>
         <select id="tipo" name="tipo" className="campo" defaultValue={valores?.tipo ?? "desechable"}>
-          {TIPOS_PRODUCTO.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+          {TIPOS_PRODUCTO.map((x) => (
+            <option key={x.value} value={x.value}>
+              {t(x.label)}
             </option>
           ))}
         </select>
       </div>
       <div>
         <label className="etiqueta" htmlFor="caladas">
-          Caladas <span className="font-normal text-zinc-400">(opcional)</span>
+          {t("Caladas")} <span className="font-normal text-zinc-400">{t("(opcional)")}</span>
         </label>
         <input id="caladas" name="caladas" type="number" min={0} inputMode="numeric" className="campo" defaultValue={valores?.caladas ?? ""} />
       </div>
       <div>
         <label className="etiqueta" htmlFor="ml">
-          Mililitros <span className="font-normal text-zinc-400">(opcional)</span>
+          {t("Mililitros")} <span className="font-normal text-zinc-400">{t("(opcional)")}</span>
         </label>
         <input id="ml" name="ml" type="number" min={0} step="0.1" inputMode="decimal" className="campo" defaultValue={valores?.ml ?? ""} />
       </div>
       <div className="sm:col-span-2">
         <label className="etiqueta" htmlFor="descripcion">
-          Descripción <span className="font-normal text-zinc-400">(opcional)</span>
+          {t("Descripción")} <span className="font-normal text-zinc-400">{t("(opcional)")}</span>
         </label>
         <textarea id="descripcion" name="descripcion" rows={2} className="campo" defaultValue={valores?.descripcion ?? ""} />
       </div>
       <div className="sm:col-span-2">
         <label className="etiqueta" htmlFor="caracteristicas">
-          Características <span className="font-normal text-zinc-400">(una por línea: batería, carga, resistencia…)</span>
+          {t("Características")}{" "}
+          <span className="font-normal text-zinc-400">{t("(una por línea: batería, carga, resistencia…)")}</span>
         </label>
         <textarea
           id="caracteristicas"
@@ -85,14 +97,14 @@ export function CamposProducto({
           rows={4}
           className="campo"
           defaultValue={valores?.caracteristicas ?? ""}
-          placeholder={"Batería 650 mAh\nCarga USB tipo C"}
+          placeholder={t("Batería 650 mAh\nCarga USB tipo C")}
         />
       </div>
     </div>
   );
 }
 
-export function CamposVariante({
+export async function CamposVariante({
   sabores,
   valores,
   idSufijo = "",
@@ -101,12 +113,13 @@ export function CamposVariante({
   valores?: { sabor?: string; nicotinaMg?: number; precioVenta?: string; stockMinimo?: number; codigoBarras?: string | null };
   idSufijo?: string;
 }) {
+  const t = await traductor();
   const lista = `lista-sabores${idSufijo}`;
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div className="sm:col-span-2 lg:col-span-1">
         <label className="etiqueta" htmlFor={`sabor${idSufijo}`}>
-          Sabor
+          {t("Sabor")}
         </label>
         <input
           id={`sabor${idSufijo}`}
@@ -116,7 +129,7 @@ export function CamposVariante({
           autoComplete="off"
           className="campo"
           defaultValue={valores?.sabor}
-          placeholder="Elige o escribe uno nuevo"
+          placeholder={t("Elige o escribe uno nuevo")}
         />
         <datalist id={lista}>
           {sabores.map((s) => (
@@ -126,19 +139,19 @@ export function CamposVariante({
       </div>
       <div>
         <label className="etiqueta" htmlFor={`categoria${idSufijo}`}>
-          Categoría <span className="font-normal text-zinc-400">(si el sabor es nuevo)</span>
+          {t("Categoría")} <span className="font-normal text-zinc-400">{t("(si el sabor es nuevo)")}</span>
         </label>
         <select id={`categoria${idSufijo}`} name="categoria" className="campo" defaultValue="fruta">
           {CATEGORIAS_SABOR.map((c) => (
             <option key={c.value} value={c.value}>
-              {c.label}
+              {t(c.label)}
             </option>
           ))}
         </select>
       </div>
       <div>
         <label className="etiqueta" htmlFor={`nicotina${idSufijo}`}>
-          Nicotina (mg)
+          {t("Nicotina (mg)")}
         </label>
         <input
           id={`nicotina${idSufijo}`}
@@ -153,7 +166,7 @@ export function CamposVariante({
       </div>
       <div>
         <label className="etiqueta" htmlFor={`precio${idSufijo}`}>
-          Precio de venta (€)
+          {t("Precio de venta (€)")}
         </label>
         <input
           id={`precio${idSufijo}`}
@@ -169,7 +182,7 @@ export function CamposVariante({
       </div>
       <div>
         <label className="etiqueta" htmlFor={`minimo${idSufijo}`}>
-          Avisar cuando queden
+          {t("Avisar cuando queden")}
         </label>
         <input
           id={`minimo${idSufijo}`}
@@ -183,7 +196,7 @@ export function CamposVariante({
       </div>
       <div>
         <label className="etiqueta" htmlFor={`codigo${idSufijo}`}>
-          Código de barras <span className="font-normal text-zinc-400">(opcional)</span>
+          {t("Código de barras")} <span className="font-normal text-zinc-400">{t("(opcional)")}</span>
         </label>
         <CampoCodigoBarras id={`codigo${idSufijo}`} defaultValue={valores?.codigoBarras ?? ""} />
       </div>

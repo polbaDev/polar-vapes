@@ -5,6 +5,7 @@ import { FormAccion, BotonEnviar } from "@/components/form-accion";
 import { anularCompra } from "@/lib/actions/stock";
 import { detalleCompra } from "@/lib/queries";
 import { euros, fecha, fechaHora } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Compra({
   params,
@@ -13,6 +14,7 @@ export default async function Compra({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ nueva?: string }>;
 }) {
+  const t = await traductor();
   const id = Number((await params).id);
   const { nueva } = await searchParams;
   const c = Number.isInteger(id) ? await detalleCompra(id) : null;
@@ -23,35 +25,37 @@ export default async function Compra({
   return (
     <>
       <Cabecera
-        titulo={`Compra #${c.id}`}
+        titulo={t("Compra #{id}", { id: c.id })}
         subtitulo={
           <>
             {fecha(c.fecha)}
             {c.proveedor ? ` · ${c.proveedor}` : ""}
-            {c.numFactura ? ` · Factura ${c.numFactura}` : ""}{" "}
-            {c.anulada && <Insignia tono="rojo">Anulada {c.anuladaEn ? fechaHora(c.anuladaEn) : ""}</Insignia>}
+            {c.numFactura ? ` · ${t("Factura {numero}", { numero: c.numFactura })}` : ""}{" "}
+            {c.anulada && (
+              <Insignia tono="rojo">{c.anuladaEn ? t("Anulada {fecha}", { fecha: fechaHora(c.anuladaEn) }) : t("Anulada")}</Insignia>
+            )}
           </>
         }
-        volver={{ href: "/compras", texto: "Compras" }}
+        volver={{ href: "/compras", texto: t("Compras") }}
         acciones={
           <Link href="/compras/nueva" className="btn-sec">
-            Otra compra
+            {t("Otra compra")}
           </Link>
         }
       />
       {nueva && !c.anulada && (
-        <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Compra guardada. El stock y los costes ya están actualizados.</p>
+        <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{t("Compra guardada. El stock y los costes ya están actualizados.")}</p>
       )}
       <div className="tarjeta overflow-x-auto">
         <table className="tabla">
           <thead>
             <tr>
-              <th>Producto</th>
-              <th>Lote</th>
-              <th className="text-right">Uds.</th>
-              <th className="text-right">Coste/ud.</th>
-              {envio > 0 && <th className="text-right">Coste real/ud.</th>}
-              <th className="text-right">Importe</th>
+              <th>{t("Producto")}</th>
+              <th>{t("Lote")}</th>
+              <th className="text-right">{t("Uds.")}</th>
+              <th className="text-right">{t("Coste/ud.")}</th>
+              {envio > 0 && <th className="text-right">{t("Coste real/ud.")}</th>}
+              <th className="text-right">{t("Importe")}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,15 +80,15 @@ export default async function Compra({
         </table>
         <dl className="space-y-1 border-t border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Productos</dt>
+            <dt className="text-zinc-500">{t("Productos")}</dt>
             <dd className="tabular-nums">{euros(subtotal)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Envío</dt>
+            <dt className="text-zinc-500">{t("Envío")}</dt>
             <dd className="tabular-nums">{euros(envio)}</dd>
           </div>
           <div className="flex justify-between text-base font-semibold">
-            <dt>Total</dt>
+            <dt>{t("Total")}</dt>
             <dd className="tabular-nums">{euros(c.total)}</dd>
           </div>
           {c.notas && <p className="pt-2 text-zinc-600">{c.notas}</p>}
@@ -93,22 +97,22 @@ export default async function Compra({
 
       {c.anulada && (
         <p className="mt-6 max-w-2xl rounded-lg bg-zinc-100 px-4 py-3 text-sm text-zinc-700">
-          Compra anulada. Sus unidades se retiraron del stock.
+          {t("Compra anulada. Sus unidades se retiraron del stock.")}
         </p>
       )}
       {!c.anulada && (
         <FormAccion accion={anularCompra} className="tarjeta mt-6 max-w-2xl p-4">
           <input type="hidden" name="id" value={c.id} />
-          <h2 className="font-semibold">Anular compra</h2>
+          <h2 className="font-semibold">{t("Anular compra")}</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Si la registraste por error. Retira esas unidades del stock (solo es posible si aún no las has vendido).
+            {t("Si la registraste por error. Retira esas unidades del stock (solo es posible si aún no las has vendido).")}
           </p>
           <label className="mt-3 flex items-center gap-2 text-sm">
-            <input type="checkbox" name="confirmar" className="h-4 w-4" /> Sí, quiero anular esta compra
+            <input type="checkbox" name="confirmar" className="h-4 w-4" /> {t("Sí, quiero anular esta compra")}
           </label>
           <div className="mt-3">
-            <BotonEnviar className="btn-peligro" textoPendiente="Anulando…">
-              Anular compra
+            <BotonEnviar className="btn-peligro" textoPendiente={t("Anulando…")}>
+              {t("Anular compra")}
             </BotonEnviar>
           </div>
         </FormAccion>

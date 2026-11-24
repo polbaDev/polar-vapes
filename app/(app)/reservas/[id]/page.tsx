@@ -5,6 +5,7 @@ import { FormAccion, BotonEnviar } from "@/components/form-accion";
 import { nombreModelo } from "@/components/buscador";
 import { cerrarReserva, confirmarReserva, editarReserva } from "@/lib/actions/reservas";
 import { leerAjustes } from "@/lib/ajustes";
+import { traductor } from "@/lib/i18n/servidor";
 import { codigoVisible, detalleReserva, ETIQUETA_ESTADO, tiempoRestante } from "@/lib/reservas";
 import { cuando, euros, fechaHora } from "@/lib/format";
 
@@ -22,62 +23,78 @@ function BotonCerrar({ id, estado, texto }: { id: number; estado: "rechazada" | 
 
 export default async function Reserva({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
-  const [r, a] = await Promise.all([Number.isInteger(id) ? detalleReserva(id) : null, leerAjustes()]);
+  const [r, a, t] = await Promise.all([Number.isInteger(id) ? detalleReserva(id) : null, leerAjustes(), traductor()]);
   if (!r) notFound();
   // Se puede tocar mientras no esté cerrada (aunque haya caducado)
   const abierta = r.estado === "pendiente" || r.estado === "confirmada" || r.estado === "caducada";
+  const fechaCierre = r.cerradaEn ? fechaHora(r.cerradaEn) : null;
 
   return (
     <>
       <Cabecera
-        titulo={`Reserva ${codigoVisible(r.codigo)}`}
+        titulo={t("Reserva {codigo}", { codigo: codigoVisible(r.codigo) })}
         subtitulo={
           <>
-            {r.nombre} · hecha el {fechaHora(r.creadaEn)}{" "}
+            {r.nombre} · {t("hecha el {fecha}", { fecha: fechaHora(r.creadaEn) })}{" "}
             <Insignia tono={r.estado === "pendiente" ? "ambar" : r.estado === "confirmada" ? "verde" : "gris"}>
-              {ETIQUETA_ESTADO[r.estado]}
+              {t(ETIQUETA_ESTADO[r.estado])}
             </Insignia>
           </>
         }
-        volver={{ href: "/reservas", texto: "Reservas" }}
+        volver={{ href: "/reservas", texto: t("Reservas") }}
         acciones={
           <Link href={`/tienda/r/${r.codigo}`} target="_blank" className="btn-sec">
-            Lo que ve el cliente
+            {t("Lo que ve el cliente")}
           </Link>
         }
       />
 
       <div className="max-w-2xl space-y-5">
-        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm">
+        <div className="rounded-xl border border-zinc-200 bg-superficie px-4 py-3 text-sm">
           {r.estado === "pendiente" && (
             <p>
-              Esperando a que la confirmes. Caduca {cuando(r.caducaEn)} ({tiempoRestante(r.caducaEn)}). Al confirmarla, queda apartada{" "}
-              {a.horasCerrar} horas.
+              {t("Esperando a que la confirmes. Caduca {cuando} ({quedan}).", {
+                cuando: cuando(r.caducaEn, t),
+                quedan: tiempoRestante(r.caducaEn, t),
+              })}{" "}
+              {a.horasCerrar === 1
+                ? t("Al confirmarla, queda apartada 1 hora.")
+                : t("Al confirmarla, queda apartada {horas} horas.", { horas: a.horasCerrar })}
             </p>
           )}
           {r.estado === "confirmada" && (
             <p>
-              Confirmada. Apartada hasta {cuando(r.caducaEn)} ({tiempoRestante(r.caducaEn)}). Cuando cerréis la venta por WhatsApp, pulsa
-              «Vender».
+              {t("Confirmada. Apartada hasta {cuando} ({quedan}). Cuando cerréis la venta por WhatsApp, pulsa «Vender».", {
+                cuando: cuando(r.caducaEn, t),
+                quedan: tiempoRestante(r.caducaEn, t),
+              })}
             </p>
           )}
           {r.estado === "caducada" && (
-            <p>Caducó {cuando(r.caducaEn)}: sus unidades ya no están apartadas. Si el cliente sigue interesado, puedes reactivarla.</p>
+            <p>
+              {t("Caducó {cuando}: sus unidades ya no están apartadas. Si el cliente sigue interesado, puedes reactivarla.", {
+                cuando: cuando(r.caducaEn, t),
+              })}
+            </p>
           )}
           {r.estado === "vendida" && (
             <p>
-              Vendida.{" "}
+              {t("Vendida.")}{" "}
               {r.ventaId && (
                 <Link href={`/ventas/${r.ventaId}`} className="enlace">
-                  Ver la venta #{r.ventaId}
+                  {t("Ver la venta #{id}", { id: r.ventaId })}
                 </Link>
               )}
             </p>
           )}
-          {(r.estado === "rechazada" || r.estado === "cancelada") && (
+          {r.estado === "rechazada" && (
             <p>
-              {ETIQUETA_ESTADO[r.estado]}
-              {r.cerradaEn ? ` el ${fechaHora(r.cerradaEn)}` : ""}. Sus unidades están libres.
+              {fechaCierre ? t("Rechazada el {fecha}.", { fecha: fechaCierre }) : t("Rechazada.")} {t("Sus unidades están libres.")}
+            </p>
+          )}
+          {r.estado === "cancelada" && (
+            <p>
+              {fechaCierre ? t("Cancelada el {fecha}.", { fecha: fechaCierre }) : t("Cancelada.")} {t("Sus unidades están libres.")}
             </p>
           )}
         </div>
@@ -86,19 +103,23 @@ export default async function Reserva({ params }: { params: Promise<{ id: string
           <div className="flex flex-wrap items-start gap-2">
             {r.estado === "confirmada" && (
               <Link href={`/ventas/nueva?reserva=${r.id}`} className="btn">
-                Vender
+                {t("Vender")}
               </Link>
             )}
             <FormAccion accion={confirmarReserva}>
               <input type="hidden" name="id" value={r.id} />
               <BotonEnviar className={r.estado === "confirmada" ? "btn-sec" : "btn"} textoPendiente="…">
-                {r.estado === "pendiente" ? "Confirmar" : r.estado === "confirmada" ? `Ampliar ${a.horasCerrar} h` : "Reactivar y confirmar"}
+                {r.estado === "pendiente"
+                  ? t("Confirmar")
+                  : r.estado === "confirmada"
+                    ? t("Ampliar {horas} h", { horas: a.horasCerrar })
+                    : t("Reactivar y confirmar")}
               </BotonEnviar>
             </FormAccion>
             {r.estado === "pendiente" ? (
-              <BotonCerrar id={r.id} estado="rechazada" texto="Rechazar" />
+              <BotonCerrar id={r.id} estado="rechazada" texto={t("Rechazar")} />
             ) : (
-              <BotonCerrar id={r.id} estado="cancelada" texto="Cancelar reserva" />
+              <BotonCerrar id={r.id} estado="cancelada" texto={t("Cancelar reserva")} />
             )}
           </div>
         )}
@@ -109,9 +130,9 @@ export default async function Reserva({ params }: { params: Promise<{ id: string
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Producto</th>
-                  <th className="text-right">Precio</th>
-                  <th className="w-24 text-right">Uds.</th>
+                  <th>{t("Producto")}</th>
+                  <th className="text-right">{t("Precio")}</th>
+                  <th className="w-24 text-right">{t("Uds.")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,7 +153,7 @@ export default async function Reserva({ params }: { params: Promise<{ id: string
                         defaultValue={l.cantidad}
                         inputMode="numeric"
                         className="campo w-20 py-1 text-right"
-                        aria-label={`Unidades de ${l.sabor}`}
+                        aria-label={t("Unidades de {sabor}", { sabor: l.sabor })}
                       />
                     </td>
                   </tr>
@@ -141,17 +162,24 @@ export default async function Reserva({ params }: { params: Promise<{ id: string
             </table>
             <div className="space-y-3 border-t border-zinc-200 bg-zinc-50 p-4">
               <div className="flex justify-between font-semibold">
-                <span>Total</span>
+                <span>{t("Total")}</span>
                 <span className="tabular-nums">{euros(r.total)}</span>
               </div>
               <div>
                 <label className="etiqueta" htmlFor="notas">
-                  Notas <span className="font-normal text-zinc-400">(solo las ves tú)</span>
+                  {t("Notas")} <span className="font-normal text-zinc-400">{t("(solo las ves tú)")}</span>
                 </label>
-                <textarea id="notas" name="notas" rows={2} defaultValue={r.notas ?? ""} className="campo" placeholder="Ej. lo recoge el viernes" />
+                <textarea
+                  id="notas"
+                  name="notas"
+                  rows={2}
+                  defaultValue={r.notas ?? ""}
+                  className="campo"
+                  placeholder={t("Ej. lo recoge el viernes")}
+                />
               </div>
-              <p className="text-xs text-zinc-500">Si en el WhatsApp cambia algo, ajusta las cantidades (0 lo quita) y guarda.</p>
-              <BotonEnviar className="btn-sec">Guardar cambios</BotonEnviar>
+              <p className="text-xs text-zinc-500">{t("Si en el WhatsApp cambia algo, ajusta las cantidades (0 lo quita) y guarda.")}</p>
+              <BotonEnviar className="btn-sec">{t("Guardar cambios")}</BotonEnviar>
             </div>
           </FormAccion>
         ) : (

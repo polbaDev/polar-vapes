@@ -5,8 +5,10 @@ import { listarVariantes, resumenPeriodo, topSabores } from "@/lib/queries";
 import { estadoCaja } from "@/lib/caja";
 import { contarPendientes } from "@/lib/reservas";
 import { euros, fecha } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Inicio() {
+  const t = await traductor();
   const [hoy, semana, mes, top, variantes, caja, reservasPendientes] = await Promise.all([
     resumenPeriodo(1),
     resumenPeriodo(7),
@@ -21,18 +23,19 @@ export default async function Inicio() {
     .sort((a, b) => a.stock - b.stock);
   const sinCatalogo = variantes.length === 0;
   const sinPrecio = variantes.filter((v) => Number(v.precioVenta) <= 0);
+  const tickets = hoy.ventas === 1 ? t("1 ticket") : t("{n} tickets", { n: hoy.ventas });
 
   return (
     <>
       <Cabecera
-        titulo="Inicio"
+        titulo={t("Inicio")}
         acciones={
           <>
             <Link href="/compras/nueva" className="btn-sec">
-              Registrar compra
+              {t("Registrar compra")}
             </Link>
             <Link href="/ventas/nueva" className="btn">
-              Nueva venta
+              {t("Nueva venta")}
             </Link>
           </>
         }
@@ -40,17 +43,28 @@ export default async function Inicio() {
 
       {sinCatalogo && (
         <div className="tarjeta mb-6 border-marca-200 bg-marca-50 p-5">
-          <h2 className="font-semibold text-marca-900">Para empezar</h2>
+          <h2 className="font-semibold text-marca-900">{t("Para empezar")}</h2>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-marca-900">
             <li>
-              Crea tus productos en <Link href="/catalogo/productos/nuevo" className="enlace">Catálogo → Nuevo producto</Link> (marca y modelo) y
-              añádeles sus sabores con el precio de venta.
+              {t("Crea tus productos en")}{" "}
+              <Link href="/catalogo/productos/nuevo" className="enlace">
+                {t("Catálogo")} → {t("Nuevo producto")}
+              </Link>{" "}
+              {t("(marca y modelo) y añádeles sus sabores con el precio de venta.")}
             </li>
             <li>
-              Registra la <Link href="/compras/nueva" className="enlace">compra</Link> de lo que tienes: así entra el stock y se calcula tu coste.
+              {t("Registra la")}{" "}
+              <Link href="/compras/nueva" className="enlace">
+                {t("compra")}
+              </Link>{" "}
+              {t("de lo que tienes: así entra el stock y se calcula tu coste.")}
             </li>
             <li>
-              Ya puedes <Link href="/ventas/nueva" className="enlace">vender</Link>.
+              {t("Ya puedes")}{" "}
+              <Link href="/ventas/nueva" className="enlace">
+                {t("vender")}
+              </Link>
+              .
             </li>
           </ol>
         </div>
@@ -59,19 +73,21 @@ export default async function Inicio() {
       {reservasPendientes > 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <span>
-            {reservasPendientes === 1 ? "Tienes 1 reserva por confirmar." : `Tienes ${reservasPendientes} reservas por confirmar.`}
+            {reservasPendientes === 1
+              ? t("Tienes 1 reserva por confirmar.")
+              : t("Tienes {n} reservas por confirmar.", { n: reservasPendientes })}
           </span>
           <Link href="/reservas" className="font-medium underline">
-            Ver reservas
+            {t("Ver reservas")}
           </Link>
         </div>
       )}
 
       {caja.pendienteDeOtroDia && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <span>La caja está sin cerrar desde el {fecha(caja.periodo.desde)}.</span>
+          <span>{t("La caja está sin cerrar desde el {fecha}.", { fecha: fecha(caja.periodo.desde) })}</span>
           <Link href="/caja" className="font-medium underline">
-            Cerrar caja
+            {t("Cerrar caja")}
           </Link>
         </div>
       )}
@@ -79,36 +95,50 @@ export default async function Inicio() {
       {sinPrecio.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <span>
-            {sinPrecio.length} sabores no tienen precio de venta y no se pueden vender todavía.
+            {sinPrecio.length === 1
+              ? t("1 sabor no tiene precio de venta y no se puede vender todavía.")
+              : t("{n} sabores no tienen precio de venta y no se pueden vender todavía.", { n: sinPrecio.length })}
           </span>
           <Link href={`/catalogo/productos/${sinPrecio[0].productoId}`} className="font-medium underline">
-            Poner precios
+            {t("Poner precios")}
           </Link>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Dato etiqueta="Ventas hoy" valor={euros(hoy.total)} detalle={`${hoy.ventas} tickets · ${hoy.unidades} uds.`} />
-        <Dato etiqueta="Beneficio hoy" valor={euros(hoy.beneficio)} detalle="Ventas menos coste" />
-        <Dato etiqueta="Últimos 7 días" valor={euros(semana.total)} detalle={`Beneficio ${euros(semana.beneficio)}`} />
-        <Dato etiqueta="Últimos 30 días" valor={euros(mes.total)} detalle={`Beneficio ${euros(mes.beneficio)}`} />
+        <Dato
+          etiqueta={t("Ventas hoy")}
+          valor={euros(hoy.total)}
+          detalle={`${tickets} · ${t("{n} uds.", { n: hoy.unidades })}`}
+        />
+        <Dato etiqueta={t("Beneficio hoy")} valor={euros(hoy.beneficio)} detalle={t("Ventas menos coste")} />
+        <Dato
+          etiqueta={t("Últimos 7 días")}
+          valor={euros(semana.total)}
+          detalle={t("Beneficio {importe}", { importe: euros(semana.beneficio) })}
+        />
+        <Dato
+          etiqueta={t("Últimos 30 días")}
+          valor={euros(mes.total)}
+          detalle={t("Beneficio {importe}", { importe: euros(mes.beneficio) })}
+        />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="tarjeta overflow-hidden">
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-            <h2 className="font-semibold">Reponer</h2>
+            <h2 className="font-semibold">{t("Reponer")}</h2>
             <span className="flex gap-4">
               <Link href="/inventario?bajo=1" className="text-sm enlace">
-                Ver todo
+                {t("Ver todo")}
               </Link>
               <Link href="/compras/pedido" className="text-sm enlace">
-                Hacer pedido
+                {t("Hacer pedido")}
               </Link>
             </span>
           </div>
           {bajos.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-zinc-500">Nada por debajo del mínimo.</p>
+            <p className="px-4 py-6 text-sm text-zinc-500">{t("Nada por debajo del mínimo.")}</p>
           ) : (
             <table className="tabla">
               <tbody>
@@ -125,7 +155,7 @@ export default async function Inicio() {
                         </span>
                       </Link>
                     </td>
-                    <td className="text-right text-xs text-zinc-500">mín. {v.stockMinimo}</td>
+                    <td className="text-right text-xs text-zinc-500">{t("mín. {n}", { n: v.stockMinimo })}</td>
                     <td className="w-12 text-right">
                       <InsigniaStock stock={v.stock} minimo={v.stockMinimo} />
                     </td>
@@ -138,21 +168,21 @@ export default async function Inicio() {
 
         <section className="tarjeta overflow-hidden">
           <div className="border-b border-zinc-200 px-4 py-3">
-            <h2 className="font-semibold">Sabores más vendidos · 30 días</h2>
+            <h2 className="font-semibold">{t("Sabores más vendidos · 30 días")}</h2>
           </div>
           {top.length === 0 ? (
             <div className="p-4">
-              <Vacio>Aún no hay ventas.</Vacio>
+              <Vacio>{t("Aún no hay ventas.")}</Vacio>
             </div>
           ) : (
             <table className="tabla">
               <tbody>
-                {top.map((t, i) => (
-                  <tr key={t.sabor}>
+                {top.map((s, i) => (
+                  <tr key={s.sabor}>
                     <td className="w-8 text-zinc-400 tabular-nums">{i + 1}</td>
-                    <td className="font-medium">{t.sabor}</td>
-                    <td className="text-right tabular-nums text-zinc-500">{t.unidades} uds.</td>
-                    <td className="text-right tabular-nums">{euros(t.total)}</td>
+                    <td className="font-medium">{s.sabor}</td>
+                    <td className="text-right tabular-nums text-zinc-500">{t("{n} uds.", { n: s.unidades })}</td>
+                    <td className="text-right tabular-nums">{euros(s.total)}</td>
                   </tr>
                 ))}
               </tbody>

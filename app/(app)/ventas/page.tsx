@@ -3,6 +3,8 @@ import { Cabecera, Dato, Insignia, Vacio } from "@/components/ui";
 import { listarVentas } from "@/lib/queries";
 import { euros, fechaHora, hoyISO } from "@/lib/format";
 import { METODOS_PAGO, etiqueta } from "@/lib/constants";
+import { tx } from "@/lib/i18n";
+import { traductor } from "@/lib/i18n/servidor";
 
 function restarDias(iso: string, dias: number) {
   const d = new Date(`${iso}T12:00:00Z`);
@@ -11,13 +13,14 @@ function restarDias(iso: string, dias: number) {
 }
 
 const PERIODOS = [
-  { id: "hoy", texto: "Hoy" },
-  { id: "7", texto: "7 días" },
-  { id: "30", texto: "30 días" },
-  { id: "mes", texto: "Este mes" },
+  { id: "hoy", texto: tx("Hoy") },
+  { id: "7", texto: tx("7 días") },
+  { id: "30", texto: tx("30 días") },
+  { id: "mes", texto: tx("Este mes") },
 ];
 
 export default async function Ventas({ searchParams }: { searchParams: Promise<{ p?: string; desde?: string; hasta?: string }> }) {
+  const t = await traductor();
   const sp = await searchParams;
   const hoy = hoyISO();
   const esFecha = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -47,10 +50,10 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
   return (
     <>
       <Cabecera
-        titulo="Ventas"
+        titulo={t("Ventas")}
         acciones={
           <Link href="/ventas/nueva" className="btn">
-            Nueva venta
+            {t("Nueva venta")}
           </Link>
         }
       />
@@ -59,39 +62,49 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
           <Link
             key={p.id}
             href={`/ventas?p=${p.id}`}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-              periodo === p.id ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-100"
-            }`}
+            aria-current={periodo === p.id ? "true" : undefined}
+            className="chip"
           >
-            {p.texto}
+            {t(p.texto)}
           </Link>
         ))}
         <form className="flex items-end gap-2" action="/ventas">
-          <input type="date" name="desde" defaultValue={desde} className="campo py-1.5 text-sm" aria-label="Desde" />
-          <input type="date" name="hasta" defaultValue={hasta} className="campo py-1.5 text-sm" aria-label="Hasta" />
-          <button className="btn-sec py-1.5 text-sm">Ver</button>
+          <input type="date" name="desde" defaultValue={desde} className="campo py-1.5 text-sm" aria-label={t("Desde")} />
+          <input type="date" name="hasta" defaultValue={hasta} className="campo py-1.5 text-sm" aria-label={t("Hasta")} />
+          <button className="btn-sec py-1.5 text-sm">{t("Ver")}</button>
         </form>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Dato etiqueta="Vendido" valor={euros(total)} detalle={`${validas.length} tickets`} />
-        <Dato etiqueta="Beneficio" valor={euros(beneficio)} detalle={total > 0 ? `${((beneficio / total) * 100).toFixed(0)} % de margen` : undefined} />
-        <Dato etiqueta="Unidades" valor={unidades} />
-        <Dato etiqueta="Por forma de pago" valor={<span className="text-base font-medium">{porPago.map((p) => `${p.label} ${euros(p.total)}`).join(" · ")}</span>} />
+        <Dato
+          etiqueta={t("Vendido")}
+          valor={euros(total)}
+          detalle={validas.length === 1 ? t("1 ticket") : t("{n} tickets", { n: validas.length })}
+        />
+        <Dato
+          etiqueta={t("Beneficio")}
+          valor={euros(beneficio)}
+          detalle={total > 0 ? t("{porcentaje} % de margen", { porcentaje: ((beneficio / total) * 100).toFixed(0) }) : undefined}
+        />
+        <Dato etiqueta={t("Unidades")} valor={unidades} />
+        <Dato
+          etiqueta={t("Por forma de pago")}
+          valor={<span className="text-base font-medium">{porPago.map((p) => `${t(p.label)} ${euros(p.total)}`).join(" · ")}</span>}
+        />
       </div>
 
       {ventas.length === 0 ? (
-        <Vacio>No hay ventas en este periodo.</Vacio>
+        <Vacio>{t("No hay ventas en este periodo.")}</Vacio>
       ) : (
         <div className="tarjeta overflow-x-auto">
           <table className="tabla">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Pago</th>
-                <th className="text-right">Uds.</th>
-                <th className="text-right">Total</th>
-                <th className="text-right">Beneficio</th>
+                <th>{t("Fecha")}</th>
+                <th>{t("Pago")}</th>
+                <th className="text-right">{t("Uds.")}</th>
+                <th className="text-right">{t("Total")}</th>
+                <th className="text-right">{t("Beneficio")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -99,20 +112,20 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
               {ventas.map((v) => (
                 <tr key={v.id} className={v.anulada ? "text-zinc-400 line-through" : ""}>
                   <td className="whitespace-nowrap">{fechaHora(v.fecha)}</td>
-                  <td>{etiqueta(METODOS_PAGO, v.metodoPago)}</td>
+                  <td>{t(etiqueta(METODOS_PAGO, v.metodoPago))}</td>
                   <td className="text-right tabular-nums">{v.unidades}</td>
                   <td className="text-right font-medium tabular-nums">
                     {euros(v.anulada ? v.total : neto(v))}
                     {Number(v.devuelto) > 0 && !v.anulada && (
-                      <div className="text-xs font-normal text-zinc-500">de {euros(v.total)}</div>
+                      <div className="text-xs font-normal text-zinc-500">{t("de {importe}", { importe: euros(v.total) })}</div>
                     )}
                   </td>
                   <td className="text-right tabular-nums">{v.anulada ? "" : euros(neto(v) - Number(v.coste))}</td>
                   <td className="text-right no-underline">
-                    {v.anulada && <Insignia tono="rojo">Anulada</Insignia>}
-                    {Number(v.devuelto) > 0 && !v.anulada && <Insignia tono="ambar">Devolución</Insignia>}{" "}
+                    {v.anulada && <Insignia tono="rojo">{t("Anulada")}</Insignia>}
+                    {Number(v.devuelto) > 0 && !v.anulada && <Insignia tono="ambar">{t("Devolución")}</Insignia>}{" "}
                     <Link href={`/ventas/${v.id}`} className="enlace text-sm">
-                      Ver
+                      {t("Ver")}
                     </Link>
                   </td>
                 </tr>

@@ -7,12 +7,14 @@ import { crearVenta } from "@/lib/actions/stock";
 import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
 import { BotonCamara, Escaner, useCamaraDisponible } from "./escaner";
 import { Foto } from "./foto";
+import { useT } from "./preferencias";
+import { tx } from "@/lib/i18n";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const PAGOS = [
-  { value: "efectivo", label: "Efectivo" },
-  { value: "tarjeta", label: "Tarjeta" },
-  { value: "bizum", label: "Bizum" },
+  { value: "efectivo", label: tx("Efectivo") },
+  { value: "tarjeta", label: tx("Tarjeta") },
+  { value: "bizum", label: tx("Bizum") },
 ];
 // Sin buscar, se enseñan los más vendidos hasta este número
 const MAX_TODOS = 60;
@@ -46,6 +48,7 @@ function entregasRapidas(total: number) {
 }
 
 export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]; reserva?: ReservaEnTpv | null }) {
+  const t = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [producto, setProducto] = useState<number | null>(null);
@@ -113,11 +116,17 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
 
   // Devuelve el motivo si no se puede añadir
   function motivoNoAnadir(v: VarianteLigera) {
-    if (v.precio <= 0) return `"${v.sabor}" no tiene precio de venta. Pónselo en Catálogo.`;
+    if (v.precio <= 0) return t('"{nombre}" no tiene precio de venta. Pónselo en Catálogo.', { nombre: v.sabor });
     if (enTicket(v.id) >= libres(v)) {
-      if (v.stock <= 0) return `No queda stock de "${v.sabor}".`;
-      if (v.reservado > 0) return `De "${v.sabor}" quedan ${v.stock}, pero ${v.reservado} están apartadas en reservas.`;
-      return `De "${v.sabor}" solo hay ${v.stock}.`;
+      if (v.stock <= 0) return t('No queda stock de "{nombre}".', { nombre: v.sabor });
+      if (v.reservado > 0) {
+        return t('De "{nombre}" quedan {stock}, pero {reservado} están apartadas en reservas.', {
+          nombre: v.sabor,
+          stock: v.stock,
+          reservado: v.reservado,
+        });
+      }
+      return t('De "{nombre}" solo hay {stock}.', { nombre: v.sabor, stock: v.stock });
     }
     return null;
   }
@@ -141,19 +150,26 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   function leerCodigo(codigo: string) {
     const v = porCodigo(variantes, codigo);
     if (!v) {
-      setError(`El código ${codigo} no está en el catálogo. Puedes añadírselo al sabor en Catálogo.`);
-      return `No está en el catálogo: ${codigo}`;
+      setError(t("El código {codigo} no está en el catálogo. Puedes añadírselo al sabor en Catálogo.", { codigo }));
+      return t("No está en el catálogo: {codigo}", { codigo });
     }
     const motivo = motivoNoAnadir(v);
     anadir(v);
-    return motivo ?? `Añadido: ${v.sabor} (${nombreModelo(v)})`;
+    return motivo ?? t("Añadido: {sabor} ({modelo})", { sabor: v.sabor, modelo: nombreModelo(v) });
   }
 
   function cambiarCantidad(id: number, delta: number) {
     const v = porId.get(id);
     const n = enTicket(id) + delta;
     if (v && n > libres(v)) {
-      setError(v.reservado > 0 ? `Solo hay ${Math.max(libres(v), 0)} libres de ese producto (${v.reservado} apartadas en reservas).` : `Solo hay ${v.stock} de ese producto.`);
+      setError(
+        v.reservado > 0
+          ? t("Solo hay {libres} libres de ese producto ({reservado} apartadas en reservas).", {
+              libres: Math.max(libres(v), 0),
+              reservado: v.reservado,
+            })
+          : t("Solo hay {stock} de ese producto.", { stock: v.stock }),
+      );
       return;
     }
     setError(null);
@@ -171,15 +187,15 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   }
 
   function vaciar() {
-    if (unidades > 2 && !window.confirm("¿Vaciar el ticket?")) return;
+    if (unidades > 2 && !window.confirm(t("¿Vaciar el ticket?"))) return;
     setLineas([]);
     setError(null);
   }
 
   function cobrar() {
     setError(null);
-    if (lineas.length === 0) return setError("El ticket está vacío.");
-    if (!mayorEdad) return setError("Marca la casilla de mayor de edad antes de cobrar.");
+    if (lineas.length === 0) return setError(t("El ticket está vacío."));
+    if (!mayorEdad) return setError(t("Marca la casilla de mayor de edad antes de cobrar."));
     startTransition(async () => {
       const r = await crearVenta({
         lineas: lineas.map((l) => ({ varianteId: l.id, cantidad: l.cantidad })),
@@ -217,9 +233,9 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onEnter}
               autoFocus
-              placeholder="Buscar marca, sabor… o escanear código"
+              placeholder={t("Buscar marca, sabor… o escanear código")}
               className="campo py-3 pr-10 text-base"
-              aria-label="Buscar producto"
+              aria-label={t("Buscar producto")}
             />
             {q && (
               <button
@@ -229,7 +245,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                   buscador.current?.focus();
                 }}
                 className="absolute inset-y-0 right-0 px-3 text-zinc-400 hover:text-zinc-700"
-                aria-label="Borrar búsqueda"
+                aria-label={t("Borrar búsqueda")}
               >
                 ✕
               </button>
@@ -239,16 +255,14 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
         </div>
 
         {productos.length > 1 && !q.trim() && (
-          <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label="Filtrar por modelo">
-            {[{ id: null, nombre: "Más vendidos" }, ...productos].map((p) => (
+          <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label={t("Filtrar por modelo")}>
+            {[{ id: null, nombre: t("Más vendidos") }, ...productos].map((p) => (
               <button
                 key={p.id ?? "todos"}
                 type="button"
                 onClick={() => setProducto(p.id)}
                 aria-pressed={producto === p.id}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ${
-                  producto === p.id ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-100"
-                }`}
+                className="chip shrink-0"
               >
                 {p.nombre}
               </button>
@@ -259,17 +273,26 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
         {hecho && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
             <span>
-              Venta registrada: <strong>{eur.format(hecho.total)}</strong>
-              {hecho.cambio !== null && hecho.cambio >= 0 && <> · Cambio: <strong>{eur.format(hecho.cambio)}</strong></>}
+              {t("Venta registrada:")} <strong>{eur.format(hecho.total)}</strong>
+              {hecho.cambio !== null && hecho.cambio >= 0 && (
+                <>
+                  {" "}
+                  · {t("Cambio:")} <strong>{eur.format(hecho.cambio)}</strong>
+                </>
+              )}
             </span>
             <Link href={`/ventas/${hecho.id}`} className="font-medium underline">
-              Ver ticket
+              {t("Ver ticket")}
             </Link>
           </div>
         )}
         {variantes.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-zinc-300 bg-white p-6 text-center text-sm text-zinc-500">
-            No hay productos activos. Créalos en <Link href="/catalogo" className="enlace">Catálogo</Link>.
+          <p className="mt-4 rounded-xl border border-dashed border-zinc-300 bg-superficie p-6 text-center text-sm text-zinc-500">
+            {t("No hay productos activos. Créalos en")}{" "}
+            <Link href="/catalogo" className="enlace">
+              {t("Catálogo")}
+            </Link>
+            .
           </p>
         ) : (
           <>
@@ -283,7 +306,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                       type="button"
                       onClick={() => anadir(v)}
                       disabled={quedan <= 0 || sinPrecio}
-                      className="tarjeta flex w-full items-center gap-3 p-2 pr-3 text-left transition hover:border-marca-200 hover:bg-marca-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white"
+                      className="tarjeta flex w-full items-center gap-3 p-2 pr-3 text-left transition hover:border-marca-200 hover:bg-marca-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-superficie"
                     >
                       <Foto id={v.imagenId} color={v.color} alt="" texto={v.sabor} className="h-14 w-14 shrink-0 rounded-lg" />
                       <span className="min-w-0 flex-1">
@@ -294,22 +317,32 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                       </span>
                       <span className="shrink-0 text-right">
                         <span className={`block font-semibold tabular-nums ${sinPrecio ? "text-amber-700" : ""}`}>
-                          {sinPrecio ? "sin precio" : eur.format(v.precio)}
+                          {sinPrecio ? t("sin precio") : eur.format(v.precio)}
                         </span>
                         <span className={`block text-xs ${quedan <= 0 ? "text-red-600" : "text-zinc-500"}`}>
-                          {quedan <= 0 ? (v.reservado > 0 && v.stock > 0 ? "todo reservado" : "sin stock") : `quedan ${quedan}`}
+                          {quedan <= 0
+                            ? v.reservado > 0 && v.stock > 0
+                              ? t("todo reservado")
+                              : t("sin stock")
+                            : quedan === 1
+                              ? t("queda 1")
+                              : t("quedan {n}", { n: quedan })}
                         </span>
-                        {v.reservado > 0 && <span className="block text-xs text-amber-700">{v.reservado} reservadas</span>}
+                        {v.reservado > 0 && (
+                          <span className="block text-xs text-amber-700">
+                            {v.reservado === 1 ? t("1 reservada") : t("{n} reservadas", { n: v.reservado })}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </li>
                 );
               })}
-              {resultados.length === 0 && <li className="text-sm text-zinc-500">Nada coincide con “{q}”.</li>}
+              {resultados.length === 0 && <li className="text-sm text-zinc-500">{t("Nada coincide con “{busqueda}”.", { busqueda: q })}</li>}
             </ul>
             {recortados && (
               <p className="mt-3 text-center text-xs text-zinc-500">
-                Se muestran los {MAX_TODOS} más vendidos. Busca o elige un modelo para ver el resto.
+                {t("Se muestran los {n} más vendidos. Busca o elige un modelo para ver el resto.", { n: MAX_TODOS })}
               </p>
             )}
           </>
@@ -321,7 +354,8 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
           {reservaActiva && (
             <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
               <span>
-                Cobrando la reserva <strong className="font-mono">{reservaActiva.codigo}</strong> de {reservaActiva.nombre}
+                {t("Cobrando la reserva")} <strong className="font-mono">{reservaActiva.codigo}</strong>{" "}
+                {t("de {cliente}", { cliente: reservaActiva.nombre })}
               </span>
               <button
                 type="button"
@@ -331,20 +365,20 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                 }}
                 className="shrink-0 text-xs underline"
               >
-                Quitar
+                {t("Quitar")}
               </button>
             </div>
           )}
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-            <h2 className="font-semibold">Ticket</h2>
+            <h2 className="font-semibold">{t("Ticket")}</h2>
             {lineas.length > 0 && (
               <button type="button" onClick={vaciar} className="text-sm text-zinc-500 hover:text-zinc-800">
-                Vaciar
+                {t("Vaciar")}
               </button>
             )}
           </div>
           {lineas.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-zinc-400">Toca un producto para añadirlo</p>
+            <p className="px-4 py-8 text-center text-sm text-zinc-400">{t("Toca un producto para añadirlo")}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
               {lineas.map((l) => {
@@ -360,11 +394,11 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => cambiarCantidad(l.id, -1)} className="btn-sec h-8 w-8 p-0" aria-label="Quitar uno">
+                      <button type="button" onClick={() => cambiarCantidad(l.id, -1)} className="btn-sec h-8 w-8 p-0" aria-label={t("Quitar uno")}>
                         −
                       </button>
                       <span className="w-6 text-center tabular-nums">{l.cantidad}</span>
-                      <button type="button" onClick={() => cambiarCantidad(l.id, 1)} className="btn-sec h-8 w-8 p-0" aria-label="Añadir uno">
+                      <button type="button" onClick={() => cambiarCantidad(l.id, 1)} className="btn-sec h-8 w-8 p-0" aria-label={t("Añadir uno")}>
                         +
                       </button>
                     </div>
@@ -377,12 +411,12 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
 
           <div className="space-y-3 border-t border-zinc-200 bg-zinc-50 px-4 py-4">
             <div className="flex justify-between text-sm">
-              <span className="text-zinc-500">Subtotal ({unidades} uds.)</span>
+              <span className="text-zinc-500">{t("Subtotal ({n} uds.)", { n: unidades })}</span>
               <span className="tabular-nums">{eur.format(subtotal)}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <label htmlFor="descuento" className="text-zinc-500">
-                Descuento (€)
+                {t("Descuento (€)")}
               </label>
               <input
                 id="descuento"
@@ -394,11 +428,11 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
               />
             </div>
             <div className="flex items-baseline justify-between">
-              <span className="font-semibold">Total</span>
+              <span className="font-semibold">{t("Total")}</span>
               <span className="text-2xl font-semibold tabular-nums">{eur.format(total)}</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-200/70 p-1" role="radiogroup" aria-label="Forma de pago">
+            <div className="segmento grid grid-cols-3" role="radiogroup" aria-label={t("Forma de pago")}>
               {PAGOS.map((p) => (
                 <button
                   key={p.value}
@@ -406,11 +440,9 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                   role="radio"
                   aria-checked={pago === p.value}
                   onClick={() => setPago(p.value)}
-                  className={`rounded-md py-1.5 text-sm font-medium transition ${
-                    pago === p.value ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600"
-                  }`}
+                  className="py-1.5"
                 >
-                  {p.label}
+                  {t(p.label)}
                 </button>
               ))}
             </div>
@@ -419,7 +451,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <label htmlFor="entregado" className="text-zinc-500">
-                    Entrega
+                    {t("Entrega")}
                   </label>
                   <input
                     id="entregado"
@@ -430,21 +462,25 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                     className="campo w-24 py-1 text-right"
                   />
                   <span className={`w-24 text-right tabular-nums ${cambio !== null && cambio < 0 ? "text-red-600" : ""}`}>
-                    {cambio === null ? "" : cambio < 0 ? `faltan ${eur.format(-cambio)}` : `cambio ${eur.format(cambio)}`}
+                    {cambio === null
+                      ? ""
+                      : cambio < 0
+                        ? t("faltan {importe}", { importe: eur.format(-cambio) })
+                        : t("cambio {importe}", { importe: eur.format(cambio) })}
                   </span>
                 </div>
                 {total > 0 && (
-                  <div className="flex gap-1.5" role="group" aria-label="Importe entregado">
+                  <div className="flex gap-1.5" role="group" aria-label={t("Importe entregado")}>
                     {entregasRapidas(total).map((importe, i) => (
                       <button
                         key={importe}
                         type="button"
                         onClick={() => setEntregado(aTexto(importe))}
                         className={`flex-1 rounded-md border py-1.5 text-sm font-medium tabular-nums transition ${
-                          aNumero(entregado) === importe ? "border-marca-500 bg-marca-50 text-marca-700" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                          aNumero(entregado) === importe ? "border-marca-500 bg-marca-50 text-marca-700" : "border-zinc-300 bg-superficie text-zinc-700 hover:bg-zinc-100"
                         }`}
                       >
-                        {i === 0 ? "Justo" : `${importe} €`}
+                        {i === 0 ? t("Justo") : `${importe} €`}
                       </button>
                     ))}
                   </div>
@@ -454,7 +490,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
 
             <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               <input type="checkbox" checked={mayorEdad} onChange={(e) => setMayorEdad(e.target.checked)} className="mt-0.5 h-4 w-4" />
-              He comprobado que el cliente es mayor de edad
+              {t("He comprobado que el cliente es mayor de edad")}
             </label>
 
             {error && (
@@ -464,7 +500,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
             )}
 
             <button type="button" onClick={cobrar} disabled={pendiente || lineas.length === 0} className="btn w-full py-3 text-base">
-              {pendiente ? "Registrando…" : `Cobrar ${eur.format(total)}`}
+              {pendiente ? t("Registrando…") : t("Cobrar {importe}", { importe: eur.format(total) })}
             </button>
           </div>
         </div>
@@ -474,9 +510,9 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
         <button
           type="button"
           onClick={() => ticketRef.current?.scrollIntoView({ behavior: "smooth" })}
-          className="fixed inset-x-4 bottom-20 z-10 flex items-center justify-between rounded-xl bg-zinc-900 px-4 py-3 text-white shadow-lg lg:hidden"
+          className="fixed inset-x-4 bottom-20 z-10 flex items-center justify-between rounded-full bg-zinc-900 px-5 py-3 text-zinc-50 shadow-lg lg:hidden"
         >
-          <span className="text-sm">{unidades} uds. en el ticket</span>
+          <span className="text-sm">{t("{n} uds. en el ticket", { n: unidades })}</span>
           <span className="font-semibold tabular-nums">{eur.format(total)} →</span>
         </button>
       )}

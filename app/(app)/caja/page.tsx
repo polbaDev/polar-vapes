@@ -5,10 +5,15 @@ import { FormCierre } from "@/components/form-cierre";
 import { crearMovimientoCaja, borrarMovimientoCaja } from "@/lib/actions/caja";
 import { estadoCaja, listarCierres } from "@/lib/caja";
 import { euros, fechaHora } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
-export const metadata = { title: "Caja · Gestión Vapers" };
+export async function generateMetadata() {
+  const t = await traductor();
+  return { title: t("Caja") };
+}
 
 export default async function Caja() {
+  const t = await traductor();
   const [estado, cierres] = await Promise.all([estadoCaja(), listarCierres()]);
   const { periodo, cuentas, movimientos, esperado } = estado;
   const movimientoSinFondo = cuentas.ventasEfectivo - cuentas.devolucionesEfectivo + cuentas.entradas - cuentas.salidas;
@@ -16,15 +21,15 @@ export default async function Caja() {
   return (
     <>
       <Cabecera
-        titulo="Caja"
+        titulo={t("Caja")}
         subtitulo={
           periodo.ultimoId === null
-            ? "Primer cierre: cuenta lo que se ha vendido hoy"
-            : `Abierta desde el último cierre: ${fechaHora(periodo.desde)}`
+            ? t("Primer cierre: cuenta lo que se ha vendido hoy")
+            : t("Abierta desde el último cierre: {fecha}", { fecha: fechaHora(periodo.desde) })
         }
         acciones={
           <Link href="/ventas" className="btn-sec">
-            Ver ventas
+            {t("Ver ventas")}
           </Link>
         }
       />
@@ -32,47 +37,49 @@ export default async function Caja() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <section className="tarjeta overflow-hidden">
-            <h2 className="border-b border-zinc-200 px-4 py-3 font-semibold">Efectivo en el cajón</h2>
+            <h2 className="border-b border-zinc-200 px-4 py-3 font-semibold">{t("Efectivo en el cajón")}</h2>
             <dl className="space-y-1.5 px-4 py-3 text-sm">
               <div className="flex justify-between">
-                <dt className="text-zinc-500">Fondo con el que empezaste</dt>
-                <dd className="tabular-nums">{periodo.fondoInicial === null ? "lo pones al cerrar" : euros(periodo.fondoInicial)}</dd>
+                <dt className="text-zinc-500">{t("Fondo con el que empezaste")}</dt>
+                <dd className="tabular-nums">{periodo.fondoInicial === null ? t("lo pones al cerrar") : euros(periodo.fondoInicial)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-zinc-500">+ Ventas en efectivo</dt>
+                <dt className="text-zinc-500">+ {t("Ventas en efectivo")}</dt>
                 <dd className="tabular-nums">{euros(cuentas.ventasEfectivo)}</dd>
               </div>
               {cuentas.devolucionesEfectivo > 0 && (
                 <div className="flex justify-between">
-                  <dt className="text-zinc-500">− Devoluciones y anulaciones en efectivo</dt>
+                  <dt className="text-zinc-500">− {t("Devoluciones y anulaciones en efectivo")}</dt>
                   <dd className="tabular-nums">{euros(cuentas.devolucionesEfectivo)}</dd>
                 </div>
               )}
               <div className="flex justify-between">
-                <dt className="text-zinc-500">+ Entradas de dinero</dt>
+                <dt className="text-zinc-500">+ {t("Entradas de dinero")}</dt>
                 <dd className="tabular-nums">{euros(cuentas.entradas)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-zinc-500">− Salidas de dinero</dt>
+                <dt className="text-zinc-500">− {t("Salidas de dinero")}</dt>
                 <dd className="tabular-nums">{euros(cuentas.salidas)}</dd>
               </div>
               <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-semibold">
-                <dt>Debería haber</dt>
+                <dt>{t("Debería haber")}</dt>
                 <dd className="tabular-nums">{esperado === null ? "—" : euros(esperado)}</dd>
               </div>
             </dl>
           </section>
 
-          <div className="grid grid-cols-3 gap-3">
-            <Dato etiqueta="Tickets" valor={cuentas.tickets} />
-            <Dato etiqueta="Tarjeta" valor={euros(cuentas.ventasTarjeta)} detalle="Compáralo con el datáfono" />
-            <Dato etiqueta="Bizum" valor={euros(cuentas.ventasBizum)} detalle="Compáralo con el móvil" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>:last-child]:col-span-2 sm:[&>:last-child]:col-span-1">
+            <Dato etiqueta={t("Tickets")} valor={cuentas.tickets} />
+            <Dato etiqueta={t("Tarjeta")} valor={euros(cuentas.ventasTarjeta)} detalle={t("Compáralo con el datáfono")} />
+            <Dato etiqueta={t("Bizum")} valor={euros(cuentas.ventasBizum)} detalle={t("Compáralo con el móvil")} />
           </div>
 
           <section className="tarjeta overflow-hidden">
             <div className="border-b border-zinc-200 px-4 py-3">
-              <h2 className="font-semibold">Entradas y salidas de dinero</h2>
-              <p className="mt-0.5 text-sm text-zinc-500">Lo que metes o sacas del cajón sin ser una venta: pagar a un repartidor, llevar al banco, poner cambio…</p>
+              <h2 className="font-semibold">{t("Entradas y salidas de dinero")}</h2>
+              <p className="mt-0.5 text-sm text-zinc-500">
+                {t("Lo que metes o sacas del cajón sin ser una venta: pagar a un repartidor, llevar al banco, poner cambio…")}
+              </p>
             </div>
             {movimientos.length > 0 && (
               <table className="tabla">
@@ -89,7 +96,7 @@ export default async function Caja() {
                         <FormAccion accion={borrarMovimientoCaja}>
                           <input type="hidden" name="id" value={m.id} />
                           <BotonEnviar className="text-sm text-zinc-400 hover:text-red-700" textoPendiente="…">
-                            Borrar
+                            {t("Borrar")}
                           </BotonEnviar>
                         </FormAccion>
                       </td>
@@ -99,18 +106,18 @@ export default async function Caja() {
               </table>
             )}
             <FormAccion accion={crearMovimientoCaja} limpiarAlGuardar className="grid gap-3 border-t border-zinc-100 bg-zinc-50 p-4 sm:grid-cols-[auto_8rem_minmax(0,1fr)_auto] sm:items-end">
-              <fieldset className="flex gap-1 rounded-lg bg-zinc-200/70 p-1 text-sm">
-                <legend className="sr-only">Tipo</legend>
-                <label className="cursor-pointer rounded-md px-3 py-1.5 font-medium text-zinc-600 has-[:checked]:bg-white has-[:checked]:text-zinc-900 has-[:checked]:shadow-sm">
-                  <input type="radio" name="tipo" value="salida" defaultChecked className="sr-only" /> Sale
+              <fieldset className="segmento self-start">
+                <legend className="sr-only">{t("Tipo")}</legend>
+                <label>
+                  <input type="radio" name="tipo" value="salida" defaultChecked className="sr-only" /> {t("Sale")}
                 </label>
-                <label className="cursor-pointer rounded-md px-3 py-1.5 font-medium text-zinc-600 has-[:checked]:bg-white has-[:checked]:text-zinc-900 has-[:checked]:shadow-sm">
-                  <input type="radio" name="tipo" value="entrada" className="sr-only" /> Entra
+                <label>
+                  <input type="radio" name="tipo" value="entrada" className="sr-only" /> {t("Entra")}
                 </label>
               </fieldset>
-              <input name="importe" inputMode="decimal" placeholder="Importe €" required aria-label="Importe" className="campo text-right" />
-              <input name="motivo" placeholder="Motivo (ej. Al banco)" required aria-label="Motivo" className="campo" />
-              <BotonEnviar className="btn-sec">Apuntar</BotonEnviar>
+              <input name="importe" inputMode="decimal" placeholder={t("Importe €")} required aria-label={t("Importe")} className="campo text-right" />
+              <input name="motivo" placeholder={t("Motivo (ej. Al banco)")} required aria-label={t("Motivo")} className="campo" />
+              <BotonEnviar className="btn-sec">{t("Apuntar")}</BotonEnviar>
             </FormAccion>
           </section>
         </div>
@@ -120,20 +127,20 @@ export default async function Caja() {
         </aside>
       </div>
 
-      <h2 className="mb-2 mt-8 font-semibold">Cierres anteriores</h2>
+      <h2 className="mb-2 mt-8 font-semibold">{t("Cierres anteriores")}</h2>
       {cierres.length === 0 ? (
-        <Vacio>Todavía no has cerrado la caja ninguna vez.</Vacio>
+        <Vacio>{t("Todavía no has cerrado la caja ninguna vez.")}</Vacio>
       ) : (
         <div className="tarjeta overflow-x-auto">
           <table className="tabla">
             <thead>
               <tr>
-                <th>Cerrada</th>
-                <th className="text-right">Tickets</th>
-                <th className="text-right">Debería haber</th>
-                <th className="text-right">Contado</th>
-                <th>Resultado</th>
-                <th className="text-right">Te llevaste</th>
+                <th>{t("Cerrada")}</th>
+                <th className="text-right">{t("Tickets")}</th>
+                <th className="text-right">{t("Debería haber")}</th>
+                <th className="text-right">{t("Contado")}</th>
+                <th>{t("Resultado")}</th>
+                <th className="text-right">{t("Te llevaste")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -150,7 +157,7 @@ export default async function Caja() {
                   <td className="text-right tabular-nums">{euros(Number(c.contado) - Number(c.fondoSiguiente))}</td>
                   <td className="text-right">
                     <Link href={`/caja/${c.id}`} className="enlace text-sm">
-                      Ver
+                      {t("Ver")}
                     </Link>
                   </td>
                 </tr>

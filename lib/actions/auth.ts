@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { intentosLogin } from "@/lib/db/schema";
 import { COOKIE, authConfigurada, igualSeguro, tokenSesion } from "@/lib/auth";
 import { huellaOrigen } from "@/lib/origen";
+import { traductor } from "@/lib/i18n/servidor";
 import type { Resultado } from "./tipos";
 
 // Bloqueo de quien prueba contraseñas: 5 fallos desde la misma conexión en 15 minutos la bloquean;
@@ -16,8 +17,9 @@ const MAX_POR_ORIGEN = 5;
 const MAX_TOTAL = 30;
 
 export async function entrar(_: Resultado, fd: FormData): Promise<Resultado> {
+  const t = await traductor();
   if (!authConfigurada()) {
-    return { error: "Falta configurar APP_PASSWORD y AUTH_SECRET en el archivo .env" };
+    return { error: t("Falta configurar APP_PASSWORD y AUTH_SECRET en el archivo .env") };
   }
   const origen = await huellaOrigen();
   await db.execute(sql`delete from intentos_login where fecha < now() - interval '1 day'`);
@@ -26,7 +28,7 @@ export async function entrar(_: Resultado, fd: FormData): Promise<Resultado> {
     from intentos_login where fecha > now() - make_interval(mins => ${MINUTOS}::int)
   `)) as unknown as { propios: number; total: number }[];
   if (n.propios >= MAX_POR_ORIGEN || n.total >= MAX_TOTAL) {
-    return { error: `Demasiados intentos fallidos. Espera ${MINUTOS} minutos y vuelve a probar.` };
+    return { error: t("Demasiados intentos fallidos. Espera {minutos} minutos y vuelve a probar.", { minutos: MINUTOS }) };
   }
 
   const pass = String(fd.get("password") ?? "");
@@ -38,8 +40,10 @@ export async function entrar(_: Resultado, fd: FormData): Promise<Resultado> {
     return {
       error:
         quedan > 0
-          ? `Contraseña incorrecta. Te quedan ${quedan} ${quedan === 1 ? "intento" : "intentos"}.`
-          : `Contraseña incorrecta. Espera ${MINUTOS} minutos antes de volver a probar.`,
+          ? quedan === 1
+            ? t("Contraseña incorrecta. Te queda 1 intento.")
+            : t("Contraseña incorrecta. Te quedan {n} intentos.", { n: quedan })
+          : t("Contraseña incorrecta. Espera {minutos} minutos antes de volver a probar.", { minutos: MINUTOS }),
     };
   }
   await db.delete(intentosLogin).where(eq(intentosLogin.origen, origen));

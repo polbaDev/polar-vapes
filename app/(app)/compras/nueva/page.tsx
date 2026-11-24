@@ -3,8 +3,12 @@ import { FormCompra } from "@/components/form-compra";
 import { variantesLigeras } from "@/lib/ligeras";
 import { listarProveedores } from "@/lib/queries";
 import { hoyISO } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
-export const metadata = { title: "Nueva compra · Gestión Vapers" };
+export async function generateMetadata() {
+  const t = await traductor();
+  return { title: t("Nueva compra") };
+}
 
 // ?proveedor=3&lineas=12:10,13:5 → compra ya rellena (viene del pedido sugerido)
 function leerInicial(sp: { proveedor?: string; lineas?: string }) {
@@ -18,18 +22,18 @@ function leerInicial(sp: { proveedor?: string; lineas?: string }) {
 }
 
 export default async function NuevaCompra({ searchParams }: { searchParams: Promise<{ proveedor?: string; lineas?: string }> }) {
-  const [variantes, proveedores, sp] = await Promise.all([variantesLigeras(), listarProveedores(), searchParams]);
+  const [variantes, proveedores, sp, t] = await Promise.all([variantesLigeras(), listarProveedores(), searchParams, traductor()]);
   const inicial = leerInicial(sp);
   return (
     <>
       <Cabecera
-        titulo="Nueva compra"
+        titulo={t("Nueva compra")}
         subtitulo={
           inicial
-            ? "Rellenada con tu pedido. Revisa cantidades y costes con la factura antes de guardar."
-            : "Lo que registres aquí entra en el stock al guardar."
+            ? t("Rellenada con tu pedido. Revisa cantidades y costes con la factura antes de guardar.")
+            : t("Lo que registres aquí entra en el stock al guardar.")
         }
-        volver={{ href: "/compras", texto: "Compras" }}
+        volver={{ href: "/compras", texto: t("Compras") }}
       />
       <FormCompra
         variantes={variantes}

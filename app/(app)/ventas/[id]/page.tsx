@@ -6,8 +6,10 @@ import { anularVenta } from "@/lib/actions/stock";
 import { detalleVenta } from "@/lib/queries";
 import { euros, fechaHora } from "@/lib/format";
 import { METODOS_PAGO, etiqueta } from "@/lib/constants";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Venta({ params }: { params: Promise<{ id: string }> }) {
+  const t = await traductor();
   const id = Number((await params).id);
   const v = Number.isInteger(id) ? await detalleVenta(id) : null;
   if (!v) notFound();
@@ -16,29 +18,31 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
   const coste = v.lineas.reduce((s, l) => s + l.cantidad * Number(l.costeUnidad) - Number(l.costeDevuelto), 0);
   const neto = Number(v.total) - devuelto;
   const beneficio = neto - coste;
-  const quedanPorDevolver = v.lineas.some((l) => l.devueltas < l.cantidad);
+  const quedanPorDevolver = v.lineas.some((l) => l.cantidad > l.devueltas);
 
   return (
     <>
       <Cabecera
-        titulo={`Venta #${v.id}`}
+        titulo={t("Venta #{id}", { id: v.id })}
         subtitulo={
           <>
-            {fechaHora(v.fecha)} · {etiqueta(METODOS_PAGO, v.metodoPago)}{" "}
-            {v.anulada && <Insignia tono="rojo">Anulada {v.anuladaEn ? fechaHora(v.anuladaEn) : ""}</Insignia>}
-            {devuelto > 0 && <Insignia tono="ambar">Con devoluciones</Insignia>}
+            {fechaHora(v.fecha)} · {t(etiqueta(METODOS_PAGO, v.metodoPago))}{" "}
+            {v.anulada && (
+              <Insignia tono="rojo">{v.anuladaEn ? t("Anulada {fecha}", { fecha: fechaHora(v.anuladaEn) }) : t("Anulada")}</Insignia>
+            )}
+            {devuelto > 0 && <Insignia tono="ambar">{t("Con devoluciones")}</Insignia>}
           </>
         }
-        volver={{ href: "/ventas", texto: "Ventas" }}
+        volver={{ href: "/ventas", texto: t("Ventas") }}
       />
       <div className="tarjeta max-w-2xl overflow-hidden">
         <table className="tabla">
           <thead>
             <tr>
-              <th>Producto</th>
-              <th className="text-right">Uds.</th>
-              <th className="text-right">Precio</th>
-              <th className="text-right">Importe</th>
+              <th>{t("Producto")}</th>
+              <th className="text-right">{t("Uds.")}</th>
+              <th className="text-right">{t("Precio")}</th>
+              <th className="text-right">{t("Importe")}</th>
             </tr>
           </thead>
           <tbody>
@@ -48,7 +52,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
                   <div className="font-medium">{l.sabor}</div>
                   <div className="text-xs text-zinc-500">
                     {l.marca} {l.modelo} · {l.nicotinaMg} mg
-                    {l.devueltas > 0 && <span className="text-amber-700"> · devueltas {l.devueltas}</span>}
+                    {l.devueltas > 0 && <span className="text-amber-700"> · {t("devueltas {n}", { n: l.devueltas })}</span>}
                   </div>
                 </td>
                 <td className="text-right tabular-nums">{l.cantidad}</td>
@@ -60,47 +64,47 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
         </table>
         <dl className="space-y-1 border-t border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Subtotal</dt>
+            <dt className="text-zinc-500">{t("Subtotal")}</dt>
             <dd className="tabular-nums">{euros(v.subtotal)}</dd>
           </div>
           {Number(v.descuento) > 0 && (
             <div className="flex justify-between">
-              <dt className="text-zinc-500">Descuento</dt>
+              <dt className="text-zinc-500">{t("Descuento")}</dt>
               <dd className="tabular-nums">−{euros(v.descuento)}</dd>
             </div>
           )}
           <div className="flex justify-between text-base font-semibold">
-            <dt>Total cobrado</dt>
+            <dt>{t("Total cobrado")}</dt>
             <dd className="tabular-nums">{euros(v.total)}</dd>
           </div>
           {devuelto > 0 && (
             <>
               <div className="flex justify-between">
-                <dt className="text-zinc-500">Devuelto</dt>
+                <dt className="text-zinc-500">{t("Devuelto")}</dt>
                 <dd className="tabular-nums">−{euros(devuelto)}</dd>
               </div>
               <div className="flex justify-between font-semibold">
-                <dt>Queda cobrado</dt>
+                <dt>{t("Queda cobrado")}</dt>
                 <dd className="tabular-nums">{euros(neto)}</dd>
               </div>
             </>
           )}
           <div className="flex justify-between text-zinc-500">
-            <dt>Coste / beneficio</dt>
+            <dt>{t("Coste / beneficio")}</dt>
             <dd className="tabular-nums">
               {euros(coste)} / {euros(beneficio)}
             </dd>
           </div>
           <div className="flex justify-between text-zinc-500">
-            <dt>Mayor de edad comprobado</dt>
-            <dd>{v.mayorEdadVerificado ? "Sí" : "No"}</dd>
+            <dt>{t("Mayor de edad comprobado")}</dt>
+            <dd>{v.mayorEdadVerificado ? t("Sí") : t("No")}</dd>
           </div>
         </dl>
       </div>
 
       {v.devoluciones.length > 0 && (
         <>
-          <h2 className="mb-2 mt-6 font-semibold">Devoluciones</h2>
+          <h2 className="mb-2 mt-6 font-semibold">{t("Devoluciones")}</h2>
           <div className="tarjeta max-w-2xl overflow-x-auto">
             <table className="tabla">
               <tbody>
@@ -110,13 +114,13 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
                     <td>
                       <div>{d.detalle}</div>
                       <div className="text-xs text-zinc-500">
-                        {d.vuelveAlStock ? "Volvió al stock" : "Defectuoso, no vuelve al stock"}
+                        {d.vuelveAlStock ? t("Volvió al stock") : t("Defectuoso, no vuelve al stock")}
                         {d.motivo ? ` · ${d.motivo}` : ""}
                       </div>
                     </td>
                     <td className="whitespace-nowrap text-right">
                       <div className="font-medium tabular-nums">−{euros(d.importe)}</div>
-                      <div className="text-xs text-zinc-500">{etiqueta(METODOS_PAGO, d.metodoPago)}</div>
+                      <div className="text-xs text-zinc-500">{t(etiqueta(METODOS_PAGO, d.metodoPago))}</div>
                     </td>
                   </tr>
                 ))}
@@ -146,22 +150,22 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
 
       {v.anulada && (
         <p className="mt-6 max-w-2xl rounded-lg bg-zinc-100 px-4 py-3 text-sm text-zinc-700">
-          Venta anulada. Sus unidades volvieron al stock y no cuenta en los totales.
+          {t("Venta anulada. Sus unidades volvieron al stock y no cuenta en los totales.")}
         </p>
       )}
       {!v.anulada && v.devoluciones.length === 0 && (
         <FormAccion accion={anularVenta} className="tarjeta mt-6 max-w-2xl p-4">
           <input type="hidden" name="id" value={v.id} />
-          <h2 className="font-semibold">Anular venta</h2>
+          <h2 className="font-semibold">{t("Anular venta")}</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Si la registraste por error. Todas las unidades vuelven al stock. Si el cliente devuelve productos, usa «Registrar devolución».
+            {t("Si la registraste por error. Todas las unidades vuelven al stock. Si el cliente devuelve productos, usa «Registrar devolución».")}
           </p>
           <label className="mt-3 flex items-center gap-2 text-sm">
-            <input type="checkbox" name="confirmar" className="h-4 w-4" /> Sí, quiero anular esta venta
+            <input type="checkbox" name="confirmar" className="h-4 w-4" /> {t("Sí, quiero anular esta venta")}
           </label>
           <div className="mt-3">
-            <BotonEnviar className="btn-peligro" textoPendiente="Anulando…">
-              Anular venta
+            <BotonEnviar className="btn-peligro" textoPendiente={t("Anulando…")}>
+              {t("Anular venta")}
             </BotonEnviar>
           </div>
         </FormAccion>

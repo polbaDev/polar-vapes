@@ -1,6 +1,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import type { Tx } from "@/lib/db";
+import { tEs, type T } from "@/lib/i18n";
 
 export type EstadoVariante = {
   stock: number;
@@ -23,7 +24,8 @@ export function reservadoSql(excluirReserva?: number | null) {
 
 // Bloquea las variantes (en orden, para evitar bloqueos cruzados) y devuelve stock, apartado y coste actuales.
 // Ventas, compras, ajustes y reservas pasan por aquí, así que no pueden pisarse entre ellas.
-export async function bloquearVariantes(tx: Tx, ids: number[], excluirReserva?: number | null) {
+// `t` traduce el error si falta algún producto (pásalo desde la acción: const t = await traductor()).
+export async function bloquearVariantes(tx: Tx, ids: number[], excluirReserva?: number | null, t: T = tEs) {
   const unicos = [...new Set(ids)].sort((a, b) => a - b);
   const mapa = new Map<number, EstadoVariante>();
   if (unicos.length === 0) return mapa;
@@ -50,7 +52,7 @@ export async function bloquearVariantes(tx: Tx, ids: number[], excluirReserva?: 
       nombre: r.nombre,
     });
   }
-  for (const id of unicos) if (!mapa.has(id)) throw new Error(`El producto #${id} no existe.`);
+  for (const id of unicos) if (!mapa.has(id)) throw new Error(t("El producto #{id} no existe.", { id }));
   return mapa;
 }
 

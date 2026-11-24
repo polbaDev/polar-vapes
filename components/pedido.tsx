@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { LineaPedido } from "@/lib/pedido";
+import type { T } from "@/lib/i18n";
 import { Foto } from "./foto";
+import { useT } from "./preferencias";
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const num = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
@@ -37,11 +39,17 @@ async function copiar(texto: string) {
   }
 }
 
-function estadoStock(l: LineaPedido) {
-  if (l.stock <= 0) return { texto: "agotado", rojo: true };
-  if (l.diasRestantes === null) return { texto: `${l.stock} en stock`, rojo: false };
+function estadoStock(l: LineaPedido, t: T) {
+  if (l.stock <= 0) return { texto: t("agotado"), rojo: true };
+  if (l.diasRestantes === null) return { texto: t("{stock} en stock", { stock: l.stock }), rojo: false };
   const d = Math.floor(l.diasRestantes);
-  return { texto: `${l.stock} en stock · ${d < 1 ? "se acaba hoy" : `para ~${d} ${d === 1 ? "día" : "días"}`}`, rojo: d < 3 };
+  const texto =
+    d < 1
+      ? t("{stock} en stock · se acaba hoy", { stock: l.stock })
+      : d === 1
+        ? t("{stock} en stock · para ~1 día", { stock: l.stock })
+        : t("{stock} en stock · para ~{dias} días", { stock: l.stock, dias: d });
+  return { texto, rojo: d < 3 };
 }
 
 export function Pedido({
@@ -55,6 +63,7 @@ export function Pedido({
   fechaTexto: string;
   proveedor: { id: number; nombre: string; telefono: string | null } | null;
 }) {
+  const t = useT();
   const [cantidades, setCantidades] = useState<Record<number, string>>(() =>
     Object.fromEntries(lineas.filter((l) => l.sugerido > 0).map((l) => [l.varianteId, String(l.sugerido)])),
   );
@@ -79,8 +88,11 @@ export function Pedido({
     porGrupoPedido.set(grupo(l), [...(porGrupoPedido.get(grupo(l)) ?? []), `- ${l.sabor}: ${cantidad(cantidades[l.varianteId])}`]);
   }
   const bloques = [...porGrupoPedido.entries()].map(([g, filas]) => `*${g}*\n${filas.join("\n")}`);
+  const total = unidades === 1 ? t("Total: 1 unidad") : t("Total: {n} unidades", { n: unidades });
   const texto =
-    pedidas.length === 0 ? "" : `Hola, te paso el pedido (${fechaTexto}):\n\n${bloques.join("\n\n")}\n\nTotal: ${unidades} unidades`;
+    pedidas.length === 0
+      ? ""
+      : `${t("Hola, te paso el pedido ({fecha}):", { fecha: fechaTexto })}\n\n${bloques.join("\n\n")}\n\n${total}`;
 
   const whatsapp = `https://wa.me/${proveedor?.telefono ?? ""}?text=${encodeURIComponent(texto)}`;
   const enlaceCompra = `/compras/nueva?${proveedor ? `proveedor=${proveedor.id}&` : ""}lineas=${pedidas
@@ -94,8 +106,8 @@ export function Pedido({
 
   if (lineas.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center text-sm text-zinc-500">
-        No hay productos activos con estos filtros.
+      <p className="rounded-xl border border-dashed border-zinc-300 bg-superficie px-4 py-10 text-center text-sm text-zinc-500">
+        {t("No hay productos activos con estos filtros.")}
       </p>
     );
   }
@@ -105,12 +117,16 @@ export function Pedido({
       <section className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-zinc-600">
-            {conSugerencia === 0 ? "Con estos datos no hace falta pedir nada." : `${conSugerencia} sabores por pedir.`}
+            {conSugerencia === 0
+              ? t("Con estos datos no hace falta pedir nada.")
+              : conSugerencia === 1
+                ? t("1 sabor por pedir.")
+                : t("{n} sabores por pedir.", { n: conSugerencia })}
           </span>
           {lineas.length > conSugerencia && (
             <label className="flex items-center gap-2 text-zinc-600">
               <input type="checkbox" checked={todos} onChange={(e) => setTodos(e.target.checked)} className="h-4 w-4" />
-              Ver también los que no hace falta pedir ({lineas.length - conSugerencia})
+              {t("Ver también los que no hace falta pedir ({n})", { n: lineas.length - conSugerencia })}
             </label>
           )}
         </div>
@@ -120,7 +136,7 @@ export function Pedido({
             <h2 className="border-b border-zinc-200 px-4 py-2.5 text-sm font-semibold">{g}</h2>
             <ul className="divide-y divide-zinc-100">
               {filas.map((l) => {
-                const est = estadoStock(l);
+                const est = estadoStock(l, t);
                 const n = cantidad(cantidades[l.varianteId]);
                 return (
                   <li key={l.varianteId} className="flex items-center gap-3 px-4 py-2.5">
@@ -130,7 +146,9 @@ export function Pedido({
                       <div className="text-xs text-zinc-500">
                         <span className={est.rojo ? "font-medium text-red-600" : ""}>{est.texto}</span>
                         {" · "}
-                        {l.vendidas === 0 ? `sin ventas en ${ventana} días` : `vende ${num.format(l.porSemana)} a la semana`}
+                        {l.vendidas === 0
+                          ? t("sin ventas en {dias} días", { dias: ventana })
+                          : t("vende {n} a la semana", { n: num.format(l.porSemana) })}
                       </div>
                     </div>
                     <div className="hidden w-20 text-right text-xs tabular-nums text-zinc-500 sm:block">
@@ -141,7 +159,7 @@ export function Pedido({
                       onChange={(e) => setCantidades((c) => ({ ...c, [l.varianteId]: e.target.value.replace(/\D/g, "") }))}
                       inputMode="numeric"
                       placeholder="0"
-                      aria-label={`Unidades de ${l.sabor}`}
+                      aria-label={t("Unidades de {sabor}", { sabor: l.sabor })}
                       className={`campo w-16 shrink-0 px-2 py-1 text-right tabular-nums ${n > 0 ? "border-marca-500 font-semibold" : ""}`}
                     />
                   </li>
@@ -155,22 +173,22 @@ export function Pedido({
       <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
         <div className="tarjeta space-y-4 p-5">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold">Tu pedido{proveedor ? ` a ${proveedor.nombre}` : ""}</h2>
-            <span className="text-sm tabular-nums text-zinc-500">{unidades} uds.</span>
+            <h2 className="font-semibold">{proveedor ? t("Tu pedido a {proveedor}", { proveedor: proveedor.nombre }) : t("Tu pedido")}</h2>
+            <span className="text-sm tabular-nums text-zinc-500">{t("{n} uds.", { n: unidades })}</span>
           </div>
           {pedidas.length === 0 ? (
-            <p className="text-sm text-zinc-500">Pon cantidades en los sabores que quieras pedir.</p>
+            <p className="text-sm text-zinc-500">{t("Pon cantidades en los sabores que quieras pedir.")}</p>
           ) : (
             <>
               <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Coste aproximado</span>
+                <span className="text-zinc-500">{t("Coste aproximado")}</span>
                 <span className="font-medium tabular-nums">{eur.format(coste)}</span>
               </div>
-              {sinCoste && <p className="-mt-2 text-xs text-zinc-500">Algunos sabores aún no tienen coste: no cuentan en el total.</p>}
+              {sinCoste && <p className="-mt-2 text-xs text-zinc-500">{t("Algunos sabores aún no tienen coste: no cuentan en el total.")}</p>}
               <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-3 font-sans text-sm text-zinc-800">{texto}</pre>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={alCopiar} className="btn-sec">
-                  {copiado === "si" ? "Copiado ✓" : copiado === "no" ? "No se pudo" : "Copiar"}
+                  {copiado === "si" ? t("Copiado ✓") : copiado === "no" ? t("No se pudo") : t("Copiar")}
                 </button>
                 <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn">
                   WhatsApp
@@ -178,14 +196,18 @@ export function Pedido({
               </div>
               {proveedor && !proveedor.telefono && (
                 <p className="text-xs text-zinc-500">
-                  {proveedor.nombre} no tiene un móvil válido guardado: WhatsApp te dejará elegir a quién enviarlo.
+                  {t("{proveedor} no tiene un móvil válido guardado: WhatsApp te dejará elegir a quién enviarlo.", {
+                    proveedor: proveedor.nombre,
+                  })}
                 </p>
               )}
               <div className="border-t border-zinc-100 pt-3">
                 <Link href={enlaceCompra} className="enlace text-sm">
-                  Cuando llegue, regístralo como compra →
+                  {t("Cuando llegue, regístralo como compra →")}
                 </Link>
-                <p className="mt-1 text-xs text-zinc-500">Se abre la compra con estos sabores y cantidades; solo tendrás que revisar los costes.</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {t("Se abre la compra con estos sabores y cantidades; solo tendrás que revisar los costes.")}
+                </p>
               </div>
             </>
           )}

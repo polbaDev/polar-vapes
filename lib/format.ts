@@ -1,3 +1,5 @@
+import { tEs, type T } from "@/lib/i18n";
+
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const num = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2 });
 
@@ -34,17 +36,17 @@ export function hoyISO(tz = process.env.APP_TZ || "Europe/Madrid") {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 }
 
-// «hoy a las 18:30», «mañana a las 10:00» o «el 25/11 a las 10:00»
-export function cuando(d: Date | string, tz = process.env.APP_TZ || "Europe/Madrid") {
+// «hoy a las 18:30», «mañana a las 10:00» o «el 25/11 a las 10:00» (en el idioma de `t`)
+export function cuando(d: Date | string, t: T = tEs, tz = process.env.APP_TZ || "Europe/Madrid") {
   const fecha = new Date(d);
   const hora = new Intl.DateTimeFormat("es-ES", { timeZone: tz, hour: "2-digit", minute: "2-digit" }).format(fecha);
   const dia = diaISO(fecha, tz);
   const hoy = diaISO(new Date(), tz);
   const manana = diaISO(new Date(Date.now() + 86400000), tz);
-  if (dia === hoy) return `hoy a las ${hora}`;
-  if (dia === manana) return `mañana a las ${hora}`;
+  if (dia === hoy) return t("hoy a las {hora}", { hora });
+  if (dia === manana) return t("mañana a las {hora}", { hora });
   const dm = new Intl.DateTimeFormat("es-ES", { timeZone: tz, day: "2-digit", month: "2-digit" }).format(fecha);
-  return `el ${dm} a las ${hora}`;
+  return t("el {dia} a las {hora}", { dia: dm, hora });
 }
 
 export function diaISO(d: Date | string, tz = process.env.APP_TZ || "Europe/Madrid") {

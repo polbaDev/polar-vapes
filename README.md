@@ -1,4 +1,4 @@
-# Gestión Vapers
+# Boira
 
 App web para llevar las compras, las ventas y el stock de la tienda: marcas, modelos, sabores y nicotina.
 
@@ -26,6 +26,7 @@ App web para llevar las compras, las ventas y el stock de la tienda: marcas, mod
 - **Inicio:** ventas y beneficio de hoy, de los últimos 7 días y de los últimos 30, lo que hay que reponer y los sabores más vendidos.
 - **Ficha de producto:** foto, características, stock total, valor del stock y ventas de 30 días, más una tarjeta por sabor con su foto, precio, stock y ventas. Desde ahí puedes poner un mismo precio a todos los sabores a la vez.
 - **Fotos:** se pueden subir desde el móvil o el PC, o importar pegando un enlace. Se guardan en la propia base de datos, así que funcionan igual en Docker y en Supabase.
+- **Aspecto, tema e idioma:** marca propia, Boira («niebla» en catalán): azul petróleo y albaricoque, logo de ondas de vapor y letra Public Sans, con la estructura visual de FinqCat (navegación en cápsula y accesos rápidos a la izquierda). En el menú del círculo de arriba a la derecha eliges el tema (claro, oscuro o el del sistema) y el idioma (castellano o catalán); en el catálogo para clientes, en el botón del globo. Cada navegador recuerda su elección.
 
 Tecnología: **Next.js 16** + **PostgreSQL** + **Drizzle ORM** + **Tailwind CSS**. Funciona igual con el Postgres de Docker y con el de **Supabase**, y se despliega en **Vercel** sin cambiar el código.
 
@@ -105,6 +106,14 @@ npm run dev                  # http://localhost:3000
 
 `npm run db:studio` abre un visor de la base de datos en el navegador.
 
+### Textos y traducciones
+
+Los textos se escriben en castellano dentro de `t("…")` (`await traductor()` en el servidor, `useT()` en componentes de cliente) y su traducción al catalán va en `lib/i18n/ca/*.json`, con el texto en castellano como clave. Las variables van entre llaves: `t("Faltan {importe}", { importe })`. `npm run i18n` avisa de los textos que faltan por traducir.
+
+### Colores y tema
+
+Los colores están en `app/globals.css` y cambian solos con el tema: las escalas `zinc`, `emerald`, `red`, `amber` y `marca` de Tailwind están redefinidas con la paleta de Boira, así que no hace falta `dark:`. Para tarjetas y campos, `bg-superficie`.
+
 ## 3. Subir a GitHub
 
 ```powershell
@@ -171,6 +180,8 @@ lib/
   queries.ts             consultas de lectura
   actions/               acciones del servidor (crear, editar, vender, comprar…)
   auth.ts, session.ts    acceso con contraseña
+  i18n/                  traducciones (ca/*.json) y traductor
+  preferencias.ts        cookies de tema e idioma
 proxy.ts                 protege todas las páginas
 app/img/[id]/            sirve las fotos guardadas en la base de datos
 drizzle/                 migraciones SQL (se suben a Git)

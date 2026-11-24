@@ -4,12 +4,14 @@ import { Foto } from "@/components/foto";
 import { listarMarcas, listarVariantes } from "@/lib/queries";
 import { CATEGORIAS_SABOR, TIPOS_PRODUCTO } from "@/lib/constants";
 import { euros } from "@/lib/format";
+import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Inventario({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; marca?: string; tipo?: string; cat?: string; bajo?: string; inactivos?: string }>;
 }) {
+  const t = await traductor();
   const sp = await searchParams;
   const [variantes, marcas] = await Promise.all([
     listarVariantes({
@@ -30,47 +32,47 @@ export default async function Inventario({
   return (
     <>
       <Cabecera
-        titulo="Inventario"
+        titulo={t("Inventario")}
         acciones={
           <Link href="/inventario/ajuste" className="btn-sec">
-            Ajustar stock
+            {t("Ajustar stock")}
           </Link>
         }
       />
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <Dato etiqueta="Unidades" valor={unidades} />
-        <Dato etiqueta="Valor a coste" valor={euros(valorCoste)} detalle="Lo que te costó" />
-        <Dato etiqueta="Valor a PVP" valor={euros(valorVenta)} detalle="Si lo vendes todo" />
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 [&>:last-child]:col-span-2 sm:[&>:last-child]:col-span-1">
+        <Dato etiqueta={t("Unidades")} valor={unidades} />
+        <Dato etiqueta={t("Valor a coste")} valor={euros(valorCoste)} detalle={t("Lo que te costó")} />
+        <Dato etiqueta={t("Valor a PVP")} valor={euros(valorVenta)} detalle={t("Si lo vendes todo")} />
       </div>
 
       <form className="tarjeta mb-5 grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-6" action="/inventario">
-        <input name="q" defaultValue={sp.q} placeholder="Buscar…" className="campo lg:col-span-2" aria-label="Buscar" />
-        <select name="marca" defaultValue={sp.marca ?? ""} className="campo" aria-label="Marca">
-          <option value="">Todas las marcas</option>
+        <input name="q" defaultValue={sp.q} placeholder={t("Buscar…")} className="campo lg:col-span-2" aria-label={t("Buscar")} />
+        <select name="marca" defaultValue={sp.marca ?? ""} className="campo" aria-label={t("Marca")}>
+          <option value="">{t("Todas las marcas")}</option>
           {marcas.map((m) => (
             <option key={m.id} value={m.id}>
               {m.nombre}
             </option>
           ))}
         </select>
-        <select name="tipo" defaultValue={sp.tipo ?? ""} className="campo" aria-label="Tipo">
-          <option value="">Todos los tipos</option>
-          {TIPOS_PRODUCTO.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
+        <select name="tipo" defaultValue={sp.tipo ?? ""} className="campo" aria-label={t("Tipo")}>
+          <option value="">{t("Todos los tipos")}</option>
+          {TIPOS_PRODUCTO.map((x) => (
+            <option key={x.value} value={x.value}>
+              {t(x.label)}
             </option>
           ))}
         </select>
-        <select name="cat" defaultValue={sp.cat ?? ""} className="campo" aria-label="Categoría de sabor">
-          <option value="">Todas las categorías</option>
+        <select name="cat" defaultValue={sp.cat ?? ""} className="campo" aria-label={t("Categoría de sabor")}>
+          <option value="">{t("Todas las categorías")}</option>
           {CATEGORIAS_SABOR.map((c) => (
             <option key={c.value} value={c.value}>
-              {c.label}
+              {t(c.label)}
             </option>
           ))}
         </select>
         <div className="flex items-center gap-2">
-          <button className="btn flex-1">Filtrar</button>
+          <button className="btn flex-1">{t("Filtrar")}</button>
           {hayFiltros && (
             <Link href="/inventario" className="btn-sec">
               ✕
@@ -79,27 +81,27 @@ export default async function Inventario({
         </div>
         <div className="flex flex-wrap gap-4 text-sm text-zinc-600 sm:col-span-2 lg:col-span-6">
           <label className="flex items-center gap-2">
-            <input type="checkbox" name="bajo" value="1" defaultChecked={sp.bajo === "1"} className="h-4 w-4" /> Solo por reponer
+            <input type="checkbox" name="bajo" value="1" defaultChecked={sp.bajo === "1"} className="h-4 w-4" /> {t("Solo por reponer")}
           </label>
           <label className="flex items-center gap-2">
-            <input type="checkbox" name="inactivos" value="1" defaultChecked={sp.inactivos === "1"} className="h-4 w-4" /> Incluir inactivos
+            <input type="checkbox" name="inactivos" value="1" defaultChecked={sp.inactivos === "1"} className="h-4 w-4" /> {t("Incluir inactivos")}
           </label>
         </div>
       </form>
 
       {variantes.length === 0 ? (
-        <Vacio>{hayFiltros ? "Nada coincide con los filtros." : "No hay productos en el catálogo."}</Vacio>
+        <Vacio>{hayFiltros ? t("Nada coincide con los filtros.") : t("No hay productos en el catálogo.")}</Vacio>
       ) : (
         <div className="tarjeta overflow-x-auto">
           <table className="tabla">
             <thead>
               <tr>
-                <th>Producto</th>
-                <th className="text-right">Nic.</th>
-                <th className="text-right">PVP</th>
-                <th className="text-right">Coste</th>
-                <th className="text-right">Mín.</th>
-                <th className="text-right">Stock</th>
+                <th>{t("Producto")}</th>
+                <th className="text-right">{t("Nic.")}</th>
+                <th className="text-right">{t("PVP")}</th>
+                <th className="text-right">{t("Coste")}</th>
+                <th className="text-right">{t("Mín.")}</th>
+                <th className="text-right">{t("Stock")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -130,7 +132,7 @@ export default async function Inventario({
                   </td>
                   <td className="text-right">
                     <Link href={`/inventario/ajuste?variante=${v.id}`} className="enlace text-sm">
-                      Ajustar
+                      {t("Ajustar")}
                     </Link>
                   </td>
                 </tr>

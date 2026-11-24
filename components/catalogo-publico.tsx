@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { crearReserva } from "@/lib/actions/reservas";
+import { tx, type T } from "@/lib/i18n";
 import type { ArticuloCatalogo } from "@/lib/reservas";
+import { useT } from "./preferencias";
 import { nombreModelo, normalizar } from "./buscador";
 import { Foto } from "./foto";
 
@@ -11,15 +13,15 @@ const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" 
 const num = new Intl.NumberFormat("es-ES");
 
 const NIVEL = {
-  disponible: { texto: "Disponible", clase: "bg-emerald-50 text-emerald-800" },
-  pocas: { texto: "Últimas unidades", clase: "bg-amber-50 text-amber-800" },
-  agotado: { texto: "Agotado", clase: "bg-zinc-100 text-zinc-500" },
+  disponible: { texto: tx("Disponible"), clase: "bg-emerald-50 text-emerald-800" },
+  pocas: { texto: tx("Últimas unidades"), clase: "bg-amber-50 text-amber-800" },
+  agotado: { texto: tx("Agotado"), clase: "bg-zinc-100 text-zinc-500" },
 } as const;
 
-function duracion(minutos: number) {
-  if (minutos < 60) return `${minutos} minutos`;
+function duracion(minutos: number, t: T) {
+  if (minutos < 60) return minutos === 1 ? t("1 minuto") : t("{n} minutos", { n: minutos });
   const h = Math.round(minutos / 60);
-  return h === 1 ? "1 hora" : `${h} horas`;
+  return h === 1 ? t("1 hora") : t("{n} horas", { n: h });
 }
 
 export function CatalogoPublico({
@@ -35,6 +37,7 @@ export function CatalogoPublico({
   minutosConfirmar: number;
   info: string;
 }) {
+  const t = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
@@ -54,8 +57,8 @@ export function CatalogoPublico({
   const terminos = normalizar(q).split(/\s+/).filter(Boolean);
   const visibles = articulos.filter((a) => {
     if (terminos.length === 0) return true;
-    const t = normalizar(`${a.marca} ${a.modelo} ${a.sabor} ${a.nicotinaMg}mg`);
-    return terminos.every((x) => t.includes(x));
+    const s = normalizar(`${a.marca} ${a.modelo} ${a.sabor} ${a.nicotinaMg}mg`);
+    return terminos.every((x) => s.includes(x));
   });
   // Agrupados por modelo, lo agotado al final de cada grupo
   const grupos = new Map<number, ArticuloCatalogo[]>();
@@ -74,7 +77,7 @@ export function CatalogoPublico({
 
   function reservar() {
     setError(null);
-    if (nombre.trim().length < 2) return setError("Escribe tu nombre.");
+    if (nombre.trim().length < 2) return setError(t("Escribe tu nombre."));
     startTransition(async () => {
       const r = await crearReserva({
         nombre,
@@ -82,7 +85,7 @@ export function CatalogoPublico({
         lineas: elegidos.map((x) => ({ varianteId: x.a.id, cantidad: x.n })),
       });
       if (r?.error || !r?.codigo) {
-        setError(r?.error ?? "No se pudo hacer la reserva.");
+        setError(r?.error ?? t("No se pudo hacer la reserva."));
         router.refresh();
         return;
       }
@@ -91,25 +94,27 @@ export function CatalogoPublico({
   }
 
   if (articulos.length === 0) {
-    return <p className="py-16 text-center text-sm text-zinc-500">Todavía no hay productos en el catálogo.</p>;
+    return <p className="py-16 text-center text-sm text-zinc-500">{t("Todavía no hay productos en el catálogo.")}</p>;
   }
 
   return (
     <>
       <div className="mb-4 rounded-xl border border-marca-100 bg-marca-50 px-4 py-3 text-sm text-marca-900">
-        Elige lo que quieres y pulsa <strong>Reservar</strong>. Te apartamos los productos durante {duracion(minutosConfirmar)}; para
-        confirmar la reserva, envíanos el código por WhatsApp.
+        {t("Elige lo que quieres y pulsa")} <strong>{t("Reservar")}</strong>.{" "}
+        {t("Te apartamos los productos durante {duracion}; para confirmar la reserva, envíanos el código por WhatsApp.", {
+          duracion: duracion(minutosConfirmar, t),
+        })}
       </div>
 
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Buscar sabor o modelo…"
+        placeholder={t("Buscar sabor o modelo…")}
         className="campo mb-5 py-3"
-        aria-label="Buscar en el catálogo"
+        aria-label={t("Buscar en el catálogo")}
       />
 
-      {grupos.size === 0 && <p className="text-sm text-zinc-500">Nada coincide con “{q}”.</p>}
+      {grupos.size === 0 && <p className="text-sm text-zinc-500">{t("Nada coincide con “{q}”.", { q })}</p>}
 
       <div className="space-y-8">
         {[...grupos.values()].map((lista) => {
@@ -120,7 +125,7 @@ export function CatalogoPublico({
               <div className="mb-3">
                 <h2 className="text-lg font-semibold">{nombreModelo(p)}</h2>
                 <p className="text-sm text-zinc-500">
-                  {[p.caladas ? `${num.format(p.caladas)} caladas` : null, `${nicotinas} mg`].filter(Boolean).join(" · ")}
+                  {[p.caladas ? t("{n} caladas", { n: num.format(p.caladas) }) : null, `${nicotinas} mg`].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -138,16 +143,21 @@ export function CatalogoPublico({
                           {nicotinas.includes("/") && <span className="text-xs text-zinc-500">{a.nicotinaMg} mg</span>}
                         </div>
                         <span className={`mt-2 inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${NIVEL[a.nivel].clase}`}>
-                          {NIVEL[a.nivel].texto}
+                          {t(NIVEL[a.nivel].texto)}
                         </span>
                         <div className="mt-auto pt-3">
                           {agotado ? null : n === 0 ? (
                             <button type="button" onClick={() => cambiar(a, 1)} disabled={unidades >= maxUnidades} className="btn-sec w-full py-1.5 text-sm">
-                              Añadir
+                              {t("Añadir")}
                             </button>
                           ) : (
                             <div className="flex items-center justify-between">
-                              <button type="button" onClick={() => cambiar(a, -1)} className="btn-sec h-9 w-9 p-0" aria-label={`Una menos de ${a.sabor}`}>
+                              <button
+                                type="button"
+                                onClick={() => cambiar(a, -1)}
+                                className="btn-sec h-9 w-9 p-0"
+                                aria-label={t("Una menos de {sabor}", { sabor: a.sabor })}
+                              >
                                 −
                               </button>
                               <span className="font-semibold tabular-nums">{n}</span>
@@ -156,7 +166,7 @@ export function CatalogoPublico({
                                 onClick={() => cambiar(a, 1)}
                                 disabled={n >= a.maximo || unidades >= maxUnidades}
                                 className="btn-sec h-9 w-9 p-0"
-                                aria-label={`Una más de ${a.sabor}`}
+                                aria-label={t("Una más de {sabor}", { sabor: a.sabor })}
                               >
                                 +
                               </button>
@@ -174,18 +184,18 @@ export function CatalogoPublico({
       </div>
 
       {unidades > 0 && !abierto && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-superficie/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
           <button type="button" onClick={() => setAbierto(true)} className="btn mx-auto flex w-full max-w-3xl justify-between py-3 text-base">
-            <span>Reservar ({unidades} uds.)</span>
+            <span>{unidades === 1 ? t("Reservar (1 ud.)") : t("Reservar ({n} uds.)", { n: unidades })}</span>
             <span className="tabular-nums">{eur.format(total)} →</span>
           </button>
         </div>
       )}
 
       {abierto && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-zinc-900/50 sm:items-center" onClick={() => !pendiente && setAbierto(false)}>
+        <div className="fixed inset-0 z-40 velo flex items-end justify-center sm:items-center" onClick={() => !pendiente && setAbierto(false)}>
           <div
-            className="max-h-[90dvh] w-full max-w-md overflow-auto rounded-t-2xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl sm:rounded-2xl"
+            className="max-h-[90dvh] w-full max-w-md overflow-auto rounded-t-2xl bg-superficie p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -193,10 +203,10 @@ export function CatalogoPublico({
           >
             <div className="flex items-center justify-between">
               <h2 id="titulo-reserva" className="text-lg font-semibold">
-                Tu reserva
+                {t("Tu reserva")}
               </h2>
               <button type="button" onClick={() => setAbierto(false)} className="text-sm text-zinc-500" disabled={pendiente}>
-                Seguir mirando
+                {t("Seguir mirando")}
               </button>
             </div>
             <ul className="mt-3 divide-y divide-zinc-100 text-sm">
@@ -215,12 +225,12 @@ export function CatalogoPublico({
               ))}
             </ul>
             <div className="flex justify-between border-t border-zinc-200 pt-2 font-semibold">
-              <span>Total</span>
+              <span>{t("Total")}</span>
               <span className="tabular-nums">{eur.format(total)}</span>
             </div>
 
             <label className="etiqueta mt-4" htmlFor="nombre_reserva">
-              Tu nombre
+              {t("Tu nombre")}
             </label>
             <input
               id="nombre_reserva"
@@ -242,8 +252,10 @@ export function CatalogoPublico({
             />
 
             <p className="mt-3 text-xs text-zinc-500">
-              Te apartamos estos productos durante {duracion(minutosConfirmar)}. En la siguiente pantalla tendrás tu código y un botón para
-              enviárnoslo por WhatsApp; la venta la cerramos por ahí.
+              {t(
+                "Te apartamos estos productos durante {duracion}. En la siguiente pantalla tendrás tu código y un botón para enviárnoslo por WhatsApp; la venta la cerramos por ahí.",
+                { duracion: duracion(minutosConfirmar, t) },
+              )}
             </p>
             {info && <p className="mt-2 whitespace-pre-line text-xs text-zinc-500">{info}</p>}
 
@@ -253,7 +265,7 @@ export function CatalogoPublico({
               </p>
             )}
             <button type="button" onClick={reservar} disabled={pendiente} className="btn mt-4 w-full py-3 text-base">
-              {pendiente ? "Reservando…" : "Reservar"}
+              {pendiente ? t("Reservando…") : t("Reservar")}
             </button>
           </div>
         </div>

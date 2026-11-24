@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { cambiarImagen } from "@/lib/actions/catalogo";
 import type { Resultado } from "@/lib/actions/tipos";
+import { useT } from "@/components/preferencias";
 
 // Reduce la foto en el navegador (máx. 1400 px) para que suba rápido desde el móvil
 async function reducir(archivo: File): Promise<File> {
@@ -34,6 +35,7 @@ export function EditorImagen({
   id: number;
   tieneImagen: boolean;
 }) {
+  const t = useT();
   const [estado, setEstado] = useState<Resultado>(null);
   const [url, setUrl] = useState("");
   const [pendiente, start] = useTransition();
@@ -50,7 +52,7 @@ export function EditorImagen({
         setEstado(r);
         if (r?.ok) setUrl("");
       } catch {
-        setEstado({ error: "No se pudo subir. ¿La foto pesa demasiado?" });
+        setEstado({ error: t("No se pudo subir. ¿La foto pesa demasiado?") });
       }
     });
   }
@@ -69,11 +71,11 @@ export function EditorImagen({
       <div className="flex flex-wrap gap-2">
         <input ref={input} type="file" accept="image/*" className="hidden" onChange={alElegir} />
         <button type="button" onClick={() => input.current?.click()} disabled={pendiente} className="btn-sec">
-          {pendiente ? "Guardando…" : tieneImagen ? "Cambiar foto" : "Subir foto"}
+          {pendiente ? t("Guardando…") : tieneImagen ? t("Cambiar foto") : t("Subir foto")}
         </button>
         {tieneImagen && (
           <button type="button" onClick={() => enviar({ quitar: "1" })} disabled={pendiente} className="btn-peligro">
-            Quitar
+            {t("Quitar")}
           </button>
         )}
       </div>
@@ -87,12 +89,12 @@ export function EditorImagen({
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="…o pega el enlace de una imagen"
+          placeholder={t("…o pega el enlace de una imagen")}
           className="campo"
-          aria-label="Enlace de la imagen"
+          aria-label={t("Enlace de la imagen")}
         />
         <button className="btn-sec" disabled={pendiente || !url.trim()}>
-          Importar
+          {t("Importar")}
         </button>
       </form>
       {estado?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{estado.error}</p>}
