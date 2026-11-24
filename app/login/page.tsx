@@ -3,6 +3,7 @@ import { Logotipo } from "@/components/marca";
 import { MenuPreferencias } from "@/components/preferencias";
 import { entrar } from "@/lib/actions/auth";
 import { traductor } from "@/lib/i18n/servidor";
+import { avisoAuth } from "@/lib/session";
 
 export async function generateMetadata() {
   const t = await traductor();
@@ -11,6 +12,8 @@ export async function generateMetadata() {
 
 export default async function Login() {
   const t = await traductor();
+  // Sin APP_PASSWORD y AUTH_SECRET buenos no se deja entrar: se explica aquí antes de que escriban nada
+  const aviso = avisoAuth(t);
   return (
     <main className="relative flex min-h-dvh items-center justify-center px-4">
       <div className="absolute right-4 top-4">
@@ -26,6 +29,11 @@ export default async function Login() {
             <p className="mt-2 text-sm text-zinc-500">{t("Control de compras, ventas y stock")}</p>
           </div>
         </div>
+        {aviso && (
+          <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {aviso}
+          </p>
+        )}
         <FormAccion accion={entrar} className="tarjeta space-y-4 p-6">
           <div>
             <label htmlFor="password" className="etiqueta">

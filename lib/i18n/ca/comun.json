@@ -92,8 +92,14 @@
   "Compra anulada": "Compra anul·lada",
   "Venta anulada": "Venda anul·lada",
 
-  "Sesión no válida. Vuelve a entrar.": "La sessió no és vàlida. Torna a entrar.",
-
   "Venta solo a mayores de 18 años.": "Venda només a majors de 18 anys.",
-  "La nicotina es una sustancia muy adictiva.": "La nicotina és una substància molt addictiva."
+  "La nicotina es una sustancia muy adictiva.": "La nicotina és una substància molt addictiva.",
+
+  "Entrada bloqueada por demasiados intentos fallidos. Espera {minutos} minutos o entra desde un dispositivo en el que ya hayas entrado antes.": "Entrada bloquejada per massa intents fallits. Espera {minutos} minuts o entra des d'un dispositiu on ja hagis entrat abans.",
+  "El archivo .env aún tiene los valores de ejemplo o son demasiado cortos (APP_PASSWORD necesita al menos 8 caracteres y AUTH_SECRET, 32). Con Docker, ejecuta parar.bat y arrancar.bat: arrancar.bat los cambia por unos nuevos y te enseña la contraseña. Si no, cámbialos a mano.": "El fitxer .env encara té els valors d'exemple o són massa curts (APP_PASSWORD necessita almenys 8 caràcters i AUTH_SECRET, 32). Amb Docker, executa parar.bat i arrancar.bat: arrancar.bat els canvia per uns de nous i et mostra la contrasenya. Si no, canvia'ls a mà.",
+  "Sesiones": "Sessions",
+  "Si se pierde un móvil o alguien que ya no debe entrar tenía la sesión abierta. Todos los dispositivos, también este, tendrán que volver a escribir la contraseña (si alguien más la sabe, cámbiala en el .env).": "Si es perd un mòbil o algú que ja no hi ha d'entrar tenia la sessió oberta. Tots els dispositius, també aquest, hauran de tornar a escriure la contrasenya (si algú més la sap, canvia-la al .env).",
+  "Sí, quiero cerrar la sesión en todos los dispositivos": "Sí, vull tancar la sessió a tots els dispositius",
+  "Cerrando sesiones…": "Tancant les sessions…",
+  "Cerrar sesión en todos los dispositivos": "Tancar la sessió a tots els dispositius"
 }

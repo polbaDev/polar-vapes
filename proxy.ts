@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE, sesionValida } from "@/lib/auth";
+import { COOKIE, leerSesion } from "@/lib/auth";
+import { versionSesionReciente } from "@/lib/ajustes";
 import { esHostCatalogo } from "@/lib/hosts";
 
 export async function proxy(request: NextRequest) {
@@ -20,9 +21,24 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/login" || pathname === "/tienda" || pathname.startsWith("/tienda/")) {
     return NextResponse.next();
   }
-  const ok = await sesionValida(request.cookies.get(COOKIE)?.value);
-  if (!ok) return NextResponse.redirect(urlMismoHost(request, "/login"));
+  const sesion = await leerSesion(request.cookies.get(COOKIE)?.value);
+  if (!sesion || !(await versionAlDia(sesion.version))) {
+    const res = NextResponse.redirect(urlMismoHost(request, "/login"));
+    if (request.cookies.has(COOKIE)) res.cookies.delete(COOKIE);
+    return res;
+  }
   return NextResponse.next();
+}
+
+// Sesión cerrada en todos los dispositivos: se mira aquí, en cada petición, porque al navegar dentro de la app
+// el layout no se vuelve a pintar. Si la base de datos no responde se deja pasar: las páginas y las acciones
+// tampoco pueden leer nada y ya enseñan su error.
+async function versionAlDia(version: number) {
+  try {
+    return version === (await versionSesionReciente());
+  } catch {
+    return true;
+  }
 }
 
 // Redirige dentro de la misma dirección por la que se entró (gestion.tudominio.es, gestion.localhost…).

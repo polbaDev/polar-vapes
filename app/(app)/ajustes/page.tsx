@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Cabecera } from "@/components/ui";
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
-import { guardarAjustes } from "@/lib/actions/ajustes";
+import { cerrarSesionesTodas, guardarAjustes } from "@/lib/actions/ajustes";
 import { leerAjustes, HORAS_CERRAR, MINUTOS_CONFIRMAR } from "@/lib/ajustes";
 import type { T } from "@/lib/i18n";
 import { traductor } from "@/lib/i18n/servidor";
@@ -127,6 +127,23 @@ export default async function Ajustes() {
           </li>
         </ul>
       </div>
+
+      <FormAccion accion={cerrarSesionesTodas} className="tarjeta mt-6 max-w-2xl p-4">
+        <h2 className="font-semibold">{t("Sesiones")}</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          {t(
+            "Si se pierde un móvil o alguien que ya no debe entrar tenía la sesión abierta. Todos los dispositivos, también este, tendrán que volver a escribir la contraseña (si alguien más la sabe, cámbiala en el .env).",
+          )}
+        </p>
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input type="checkbox" name="confirmar" className="h-4 w-4" /> {t("Sí, quiero cerrar la sesión en todos los dispositivos")}
+        </label>
+        <div className="mt-3">
+          <BotonEnviar className="btn-peligro" textoPendiente={t("Cerrando sesiones…")}>
+            {t("Cerrar sesión en todos los dispositivos")}
+          </BotonEnviar>
+        </div>
+      </FormAccion>
     </>
   );
 }

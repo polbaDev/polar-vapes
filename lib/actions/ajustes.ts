@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { guardarAjustesEnDb, telefonoWhatsApp, HORAS_CERRAR, MINUTOS_CONFIRMAR } from "@/lib/ajustes";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { guardarAjustesEnDb, subirVersionSesion, telefonoWhatsApp, HORAS_CERRAR, MINUTOS_CONFIRMAR } from "@/lib/ajustes";
+import { COOKIE } from "@/lib/auth";
 import { exigirSesion } from "@/lib/session";
 import { traductor } from "@/lib/i18n/servidor";
 import { type Resultado, texto, entero, mensajeError } from "./tipos";
@@ -39,4 +42,18 @@ export async function guardarAjustes(_: Resultado, fd: FormData): Promise<Result
   }
   revalidatePath("/", "layout");
   return { ok: t("Ajustes guardados.") };
+}
+
+// Todas las sesiones abiertas (también esta) dejan de valer: hay que volver a entrar con la contraseña
+export async function cerrarSesionesTodas(_: Resultado, fd: FormData): Promise<Resultado> {
+  await exigirSesion();
+  const t = await traductor();
+  if (fd.get("confirmar") !== "on") return { error: t("Marca la casilla para confirmar.") };
+  try {
+    await subirVersionSesion();
+  } catch (e) {
+    return { error: mensajeError(e, t) };
+  }
+  (await cookies()).delete(COOKIE);
+  redirect("/login");
 }

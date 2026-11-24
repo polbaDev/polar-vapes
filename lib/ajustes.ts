@@ -1,4 +1,5 @@
 import "server-only";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ajustes } from "@/lib/db/schema";
 
@@ -41,7 +42,49 @@ const CLAVES: Record<keyof Ajustes, string> = {
   catalogoAbierto: "catalogo_abierto",
 };
 
+// Versión de las sesiones: al subirla, las cookies emitidas antes dejan de valer (ver lib/auth.ts)
+const CLAVE_VERSION_SESION = "sesion_version";
+
+function numeroVersion(valor: string | undefined) {
+  const n = Number(valor);
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
+}
+
+export async function versionSesion() {
+  const [f] = await db.select({ valor: ajustes.valor }).from(ajustes).where(eq(ajustes.clave, CLAVE_VERSION_SESION));
+  return numeroVersion(f?.valor);
+}
+
+// Para el Proxy, que la mira en cada petición: se guarda unos segundos en memoria para no leer la base de datos cada vez
+const SEGUNDOS_VERSION = 5;
+let versionGuardada: { valor: number; hasta: number } | null = null;
+
+export async function versionSesionReciente() {
+  if (versionGuardada && versionGuardada.hasta > Date.now()) return versionGuardada.valor;
+  const valor = await versionSesion();
+  versionGuardada = { valor, hasta: Date.now() + SEGUNDOS_VERSION * 1000 };
+  return valor;
+}
+
+// Cierra la sesión en todos los dispositivos. Devuelve la versión nueva.
+export async function subirVersionSesion() {
+  const [f] = await db
+    .insert(ajustes)
+    .values({ clave: CLAVE_VERSION_SESION, valor: "1" })
+    .onConflictDoUpdate({
+      target: ajustes.clave,
+      set: { valor: sql`(case when ${ajustes.valor} ~ '^[0-9]{1,15}$' then ${ajustes.valor}::bigint else 0 end + 1)::text` },
+    })
+    .returning({ valor: ajustes.valor });
+  return numeroVersion(f.valor);
+}
+
 export async function leerAjustes(): Promise<Ajustes> {
+  return (await leerAjustesYSesion()).ajustes;
+}
+
+// Ajustes y versión de las sesiones en una sola consulta (para el layout de la gestión)
+export async function leerAjustesYSesion(): Promise<{ ajustes: Ajustes; versionSesion: number }> {
   const filas = await db.select().from(ajustes);
   const m = new Map(filas.map((f) => [f.clave, f.valor]));
   const num = (k: keyof Ajustes, def: number) => {
@@ -50,13 +93,16 @@ export async function leerAjustes(): Promise<Ajustes> {
   };
   const d = AJUSTES_POR_DEFECTO;
   return {
-    nombreTienda: m.get(CLAVES.nombreTienda) || d.nombreTienda,
-    whatsapp: m.get(CLAVES.whatsapp) ?? d.whatsapp,
-    info: m.get(CLAVES.info) ?? d.info,
-    minutosConfirmar: num("minutosConfirmar", d.minutosConfirmar),
-    horasCerrar: num("horasCerrar", d.horasCerrar),
-    maxUnidades: num("maxUnidades", d.maxUnidades),
-    catalogoAbierto: m.has(CLAVES.catalogoAbierto) ? m.get(CLAVES.catalogoAbierto) === "1" : d.catalogoAbierto,
+    ajustes: {
+      nombreTienda: m.get(CLAVES.nombreTienda) || d.nombreTienda,
+      whatsapp: m.get(CLAVES.whatsapp) ?? d.whatsapp,
+      info: m.get(CLAVES.info) ?? d.info,
+      minutosConfirmar: num("minutosConfirmar", d.minutosConfirmar),
+      horasCerrar: num("horasCerrar", d.horasCerrar),
+      maxUnidades: num("maxUnidades", d.maxUnidades),
+      catalogoAbierto: m.has(CLAVES.catalogoAbierto) ? m.get(CLAVES.catalogoAbierto) === "1" : d.catalogoAbierto,
+    },
+    versionSesion: numeroVersion(m.get(CLAVE_VERSION_SESION)),
   };
 }
 
