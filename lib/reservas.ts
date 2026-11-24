@@ -180,6 +180,14 @@ export async function contarPendientes() {
   return r?.n ?? 0;
 }
 
+// Reservas sin confirmar, también las caducadas, y la última de ellas (para rechazarlas todas de golpe)
+export async function resumenSinConfirmar() {
+  const [r] = await filas<{ n: number; hasta: number | null }>(
+    sql`select count(*)::int as n, max(id) as hasta from reservas where estado = 'pendiente'`,
+  );
+  return { n: r?.n ?? 0, hasta: r?.hasta ?? 0 };
+}
+
 // Unidades apartadas por variante (para el TPV), sin contar una reserva concreta si se indica
 export async function unidadesReservadas(excluirReserva?: number | null) {
   const rows = await filas<{ varianteId: number; unidades: number }>(sql`

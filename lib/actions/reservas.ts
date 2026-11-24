@@ -94,21 +94,23 @@ export async function crearReserva(input: ReservaInput): Promise<Resultado & { c
     }
 
     const origen = await huellaOrigen();
-    const [lim] = (await db.execute(sql`
-      select
-        count(*) filter (where origen = ${origen} and estado in ('pendiente', 'confirmada') and caduca_en > now())::int as activas,
-        count(*) filter (where origen = ${origen} and creada_en > now() - interval '1 hour')::int as propias_hora,
-        count(*) filter (where creada_en > now() - interval '1 hour')::int as total_hora
-      from reservas
-    `)) as unknown as { activas: number; propias_hora: number; total_hora: number }[];
-    if (lim.activas >= ACTIVAS_POR_ORIGEN) {
-      throw new Error(t("Ya tienes {n} reservas en curso. Espera a que te las confirmemos o cancela alguna.", { n: lim.activas }));
-    }
-    if (lim.propias_hora >= NUEVAS_POR_ORIGEN_HORA || lim.total_hora >= NUEVAS_TOTAL_HORA) {
-      throw new Error(t("Se han hecho demasiadas reservas seguidas. Prueba un poco más tarde."));
-    }
-
     const codigo = await db.transaction(async (tx) => {
+      // Las reservas del catálogo se crean de una en una: si no, muchas a la vez pasarían todas los límites
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('reservas_publicas'))`);
+      const [lim] = (await tx.execute(sql`
+        select
+          count(*) filter (where origen = ${origen} and estado in ('pendiente', 'confirmada') and caduca_en > now())::int as activas,
+          count(*) filter (where origen = ${origen} and creada_en > now() - interval '1 hour')::int as propias_hora,
+          count(*) filter (where creada_en > now() - interval '1 hour')::int as total_hora
+        from reservas
+      `)) as unknown as { activas: number; propias_hora: number; total_hora: number }[];
+      if (lim.activas >= ACTIVAS_POR_ORIGEN) {
+        throw new Error(t("Ya tienes {n} reservas en curso. Espera a que te las confirmemos o cancela alguna.", { n: lim.activas }));
+      }
+      if (lim.propias_hora >= NUEVAS_POR_ORIGEN_HORA || lim.total_hora >= NUEVAS_TOTAL_HORA) {
+        throw new Error(t("Se han hecho demasiadas reservas seguidas. Prueba un poco más tarde."));
+      }
+
       const estado = await comprobarLibres(tx, lineas, null, true, t);
       let codigo = nuevoCodigo();
       for (let i = 0; i < 5; i++) {
@@ -222,6 +224,30 @@ export async function cerrarReserva(_: Resultado, fd: FormData): Promise<Resulta
   }
   refrescar();
   return { ok: estado === "rechazada" ? t("Reserva rechazada.") : t("Reserva cancelada.") };
+}
+
+// Rechazar de golpe todas las que no se han confirmado, también las caducadas (p. ej. si alguien llena el
+// catálogo de reservas falsas). Solo hasta la última que se veía en pantalla: las que lleguen después, no.
+export async function rechazarPendientes(_: Resultado, fd: FormData): Promise<Resultado> {
+  const t = await traductor();
+  await exigirSesion();
+  const hasta = entero(fd, "hasta");
+  if (!hasta) return { error: t("Acción no válida.") };
+  if (fd.get("confirmar") !== "on") return { error: t("Marca la casilla para confirmar.") };
+  let n = 0;
+  try {
+    const filas = await db.execute(sql`
+      update reservas set estado = 'rechazada', cerrada_en = now()
+      where estado = 'pendiente' and id <= ${hasta}
+      returning id
+    `);
+    n = (filas as unknown as unknown[]).length;
+    if (n === 0) throw new Error(t("No había reservas por confirmar."));
+  } catch (e) {
+    return { error: mensajeError(e, t) };
+  }
+  refrescar();
+  return { ok: n === 1 ? t("1 reserva rechazada.") : t("{n} reservas rechazadas.", { n }) };
 }
 
 // Cambiar cantidades (si en el WhatsApp cambia algo) y las notas

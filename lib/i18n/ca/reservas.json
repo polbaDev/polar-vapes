@@ -153,5 +153,13 @@
   "(solo las ves tú)": "(només les veus tu)",
   "Ej. lo recoge el viernes": "P. ex. ho recull divendres",
   "Si en el WhatsApp cambia algo, ajusta las cantidades (0 lo quita) y guarda.": "Si al WhatsApp canvia alguna cosa, ajusta les quantitats (amb 0 es treu) i desa.",
-  "Guardar cambios": "Desar els canvis"
+  "Guardar cambios": "Desar els canvis",
+
+  "Rechazar todas las pendientes": "Rebutjar totes les pendents",
+  "Para cuando alguien llena el catálogo de reservas falsas. Rechaza de una vez las que no has confirmado ({n}), también las caducadas, y libera sus unidades.": "Per quan algú omple el catàleg de reserves falses. Rebutja de cop les que no has confirmat ({n}), també les caducades, i n'allibera les unitats.",
+  "Sí, quiero rechazar todas las reservas por confirmar": "Sí, vull rebutjar totes les reserves per confirmar",
+  "Rechazando…": "Rebutjant…",
+  "No había reservas por confirmar.": "No hi havia reserves per confirmar.",
+  "1 reserva rechazada.": "1 reserva rebutjada.",
+  "{n} reservas rechazadas.": "{n} reserves rebutjades."
 }

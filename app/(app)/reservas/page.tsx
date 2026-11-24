@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Cabecera, Insignia, Vacio } from "@/components/ui";
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
-import { confirmarReserva } from "@/lib/actions/reservas";
+import { confirmarReserva, rechazarPendientes } from "@/lib/actions/reservas";
 import { leerAjustes } from "@/lib/ajustes";
 import type { T } from "@/lib/i18n";
 import { traductor } from "@/lib/i18n/servidor";
-import { codigoVisible, ETIQUETA_ESTADO, listarReservas, tiempoRestante, type ReservaFila } from "@/lib/reservas";
+import { codigoVisible, ETIQUETA_ESTADO, listarReservas, resumenSinConfirmar, tiempoRestante, type ReservaFila } from "@/lib/reservas";
 import { cuando, euros, fechaHora } from "@/lib/format";
 
 export async function generateMetadata() {
@@ -84,8 +84,9 @@ function Seccion({ titulo, lista, vacio, t }: { titulo: string; lista: ReservaFi
 }
 
 export default async function Reservas() {
-  const [lista, a, t] = await Promise.all([listarReservas(), leerAjustes(), traductor()]);
+  const [lista, a, t, sinConfirmar] = await Promise.all([listarReservas(), leerAjustes(), traductor(), resumenSinConfirmar()]);
   const de = (...estados: string[]) => lista.filter((r) => estados.includes(r.estado));
+  const pendientes = de("pendiente");
 
   return (
     <>
@@ -123,7 +124,31 @@ export default async function Reservas() {
         </p>
       )}
 
-      <Seccion t={t} titulo={t("Por confirmar")} lista={de("pendiente")} vacio={t("No hay reservas esperando a que las confirmes.")} />
+      <Seccion t={t} titulo={t("Por confirmar")} lista={pendientes} vacio={t("No hay reservas esperando a que las confirmes.")} />
+      {/* Siempre montado: después de rechazarlas todas sigue viéndose cuántas se rechazaron */}
+      <FormAccion accion={rechazarPendientes} className={sinConfirmar.n ? "tarjeta -mt-3 mb-6 p-4" : "-mt-3 mb-6 empty:hidden"}>
+        {sinConfirmar.n > 0 && (
+          <>
+            {/* Solo hasta la última que se ve ahora: una que llegue mientras tanto no se rechaza sin mirarla */}
+            <input type="hidden" name="hasta" value={sinConfirmar.hasta} />
+            <h2 className="font-semibold">{t("Rechazar todas las pendientes")}</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              {t(
+                "Para cuando alguien llena el catálogo de reservas falsas. Rechaza de una vez las que no has confirmado ({n}), también las caducadas, y libera sus unidades.",
+                { n: sinConfirmar.n },
+              )}
+            </p>
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input type="checkbox" name="confirmar" className="h-4 w-4" /> {t("Sí, quiero rechazar todas las reservas por confirmar")}
+            </label>
+            <div className="mt-3">
+              <BotonEnviar className="btn-peligro" textoPendiente={t("Rechazando…")}>
+                {t("Rechazar todas las pendientes")}
+              </BotonEnviar>
+            </div>
+          </>
+        )}
+      </FormAccion>
       <Seccion t={t} titulo={t("Confirmadas, apartadas")} lista={de("confirmada")} />
       <Seccion t={t} titulo={t("Caducadas sin cerrar")} lista={de("caducada")} />
       <Seccion t={t} titulo={t("Últimos 30 días")} lista={de("vendida", "rechazada", "cancelada")} />
