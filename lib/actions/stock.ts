@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { db, type Tx } from "@/lib/db";
 import { bloquearVariantes, costeTrasEntrada } from "@/lib/bloqueo";
 import {
   compras,
@@ -15,6 +15,7 @@ import {
   devoluciones,
   lineasDevolucion,
 } from "@/lib/db/schema";
+import { costeTrasAnularCompra } from "@/lib/coste-calculo";
 import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { exigirSesion } from "@/lib/session";
 import { METODOS_PAGO, MOTIVOS_AJUSTE, valores, etiqueta } from "@/lib/constants";
@@ -145,11 +146,40 @@ export async function anularCompra(_: Resultado, fd: FormData): Promise<Resultad
         }
       }
 
+      // Las otras compras no anuladas de estos productos, la más reciente primero (para recalcular el coste)
+      const otras = await tx
+        .select({ varianteId: lineasCompra.varianteId, cantidad: lineasCompra.cantidad, costeReal: lineasCompra.costeReal })
+        .from(lineasCompra)
+        .innerJoin(compras, eq(compras.id, lineasCompra.compraId))
+        .where(and(inArray(lineasCompra.varianteId, [...porVariante.keys()]), ne(lineasCompra.compraId, id), eq(compras.anulada, false)))
+        .orderBy(desc(lineasCompra.id));
+      // Productos con unidades metidas por ajuste (su coste puede quedar por debajo del de cualquier compra)
+      const conAjustes = new Set(
+        (
+          await tx
+            .selectDistinct({ varianteId: movimientosStock.varianteId })
+            .from(movimientosStock)
+            .where(
+              and(
+                inArray(movimientosStock.varianteId, [...porVariante.keys()]),
+                eq(movimientosStock.tipo, "ajuste"),
+                gt(movimientosStock.cantidad, 0),
+              ),
+            )
+        ).map((m) => m.varianteId),
+      );
+
       for (const l of lineas) {
         const v = estado.get(l.varianteId)!;
         const restante = v.stock - l.cantidad;
-        const coste =
-          restante > 0 ? Math.max((v.stock * v.coste - l.cantidad * Number(l.costeReal)) / restante, 0) : v.coste;
+        const coste = costeTrasAnularCompra(
+          v.stock,
+          v.coste,
+          l.cantidad,
+          Number(l.costeReal),
+          otras.filter((o) => o.varianteId === l.varianteId).map((o) => ({ cantidad: o.cantidad, costeReal: Number(o.costeReal) })),
+          conAjustes.has(l.varianteId),
+        );
         await tx.insert(movimientosStock).values({
           varianteId: l.varianteId,
           tipo: "anulacion_compra",
