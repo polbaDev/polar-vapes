@@ -22,15 +22,22 @@ export function FormCompra({
   proveedores,
   hoy,
   inicial,
+  socios = [],
+  yo,
 }: {
   variantes: VarianteLigera[];
   proveedores: { id: number; nombre: string }[];
   hoy: string;
   // Para abrir la compra ya rellena (desde el pedido sugerido)
   inicial?: { proveedorId: number | null; lineas: { varianteId: number; cantidad: number }[] };
+  // Socios que pueden pagarla de su bolsillo
+  socios?: { id: number; nombre: string }[];
+  yo: number;
 }) {
   const router = useRouter();
   const t = useT();
+  // Por defecto la paga quien la registra (si es socio); «comun» = con dinero de la tienda
+  const [paga, setPaga] = useState(socios.some((s) => s.id === yo) ? String(yo) : socios.length ? String(socios[0].id) : "comun");
   const [proveedorId, setProveedorId] = useState(
     inicial?.proveedorId && proveedores.some((p) => p.id === inicial.proveedorId) ? String(inicial.proveedorId) : "",
   );
@@ -120,6 +127,7 @@ export function FormCompra({
         gastosEnvio: gastos,
         notas: notas || null,
         lineas: datos,
+        pagaId: paga === "comun" ? null : Number(paga),
       });
       if (r?.error) return setError(r.error);
       router.push(`/compras/${r!.id}?nueva=1`);
@@ -291,6 +299,22 @@ export function FormCompra({
               </label>
               <input id="notas" value={notas} onChange={(e) => setNotas(e.target.value)} className="campo" />
             </div>
+            {socios.length > 0 && (
+              <div>
+                <label className="etiqueta" htmlFor="paga">
+                  {t("¿Quién la paga?")}
+                </label>
+                <select id="paga" value={paga} onChange={(e) => setPaga(e.target.value)} className="campo sm:w-72">
+                  {socios.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {t("{nombre}, de su bolsillo", { nombre: s.nombre })}
+                    </option>
+                  ))}
+                  <option value="comun">{t("Dinero de la tienda (caja o cuenta común)")}</option>
+                </select>
+                <p className="mt-1 text-xs text-zinc-500">{t("Cuenta en las cuentas entre socios.")}</p>
+              </div>
+            )}
           </div>
           <div className="flex flex-col justify-end gap-1 text-sm sm:items-end">
             <div className="flex w-full justify-between sm:w-64">

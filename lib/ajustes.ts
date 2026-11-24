@@ -55,12 +55,14 @@ export async function versionSesion() {
   return numeroVersion(f?.valor);
 }
 
-// Para el Proxy, que la mira en cada petición: se guarda unos segundos en memoria para no leer la base de datos cada vez
+// Para el Proxy, que la mira en cada petición: se guarda unos segundos en memoria para no leer la base de datos cada vez.
+// La versión solo sube: si la cookie trae una más nueva que la guardada (se acaba de volver a entrar tras
+// cerrar las sesiones), lo guardado está viejo y se vuelve a leer.
 const SEGUNDOS_VERSION = 5;
 let versionGuardada: { valor: number; hasta: number } | null = null;
 
-export async function versionSesionReciente() {
-  if (versionGuardada && versionGuardada.hasta > Date.now()) return versionGuardada.valor;
+export async function versionSesionReciente(versionVista = 0) {
+  if (versionGuardada && versionGuardada.hasta > Date.now() && versionVista <= versionGuardada.valor) return versionGuardada.valor;
   const valor = await versionSesion();
   versionGuardada = { valor, hasta: Date.now() + SEGUNDOS_VERSION * 1000 };
   return valor;

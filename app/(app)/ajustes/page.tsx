@@ -132,7 +132,7 @@ export default async function Ajustes() {
         <h2 className="font-semibold">{t("Sesiones")}</h2>
         <p className="mt-1 text-sm text-zinc-500">
           {t(
-            "Si se pierde un móvil o alguien que ya no debe entrar tenía la sesión abierta. Todos los dispositivos, también este, tendrán que volver a escribir la contraseña (si alguien más la sabe, cámbiala en el .env).",
+            "Si se pierde un móvil. Todos los dispositivos de todas las cuentas, también este, tendrán que volver a entrar. Para echar solo a una persona, desactiva su cuenta o cámbiale la contraseña en Socios → Cuentas y contraseñas.",
           )}
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm">

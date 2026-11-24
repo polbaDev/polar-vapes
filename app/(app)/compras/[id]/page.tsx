@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Cabecera, Insignia } from "@/components/ui";
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
 import { anularCompra } from "@/lib/actions/stock";
+import { cambiarPagaCompra } from "@/lib/actions/socios";
 import { detalleCompra } from "@/lib/queries";
+import { listarSocios } from "@/lib/usuarios";
 import { euros, fecha, fechaHora } from "@/lib/format";
 import { traductor } from "@/lib/i18n/servidor";
 
@@ -17,7 +19,7 @@ export default async function Compra({
   const t = await traductor();
   const id = Number((await params).id);
   const { nueva } = await searchParams;
-  const c = Number.isInteger(id) ? await detalleCompra(id) : null;
+  const [c, socios] = await Promise.all([Number.isInteger(id) ? detalleCompra(id) : null, listarSocios()]);
   if (!c) notFound();
   const subtotal = c.lineas.reduce((s, l) => s + l.cantidad * Number(l.costeUnidad), 0);
   const envio = Number(c.gastosEnvio);
@@ -30,9 +32,13 @@ export default async function Compra({
           <>
             {fecha(c.fecha)}
             {c.proveedor ? ` · ${c.proveedor}` : ""}
-            {c.numFactura ? ` · ${t("Factura {numero}", { numero: c.numFactura })}` : ""}{" "}
+            {c.numFactura ? ` · ${t("Factura {numero}", { numero: c.numFactura })}` : ""}
+            {c.usuario ? ` · ${t("La apuntó {nombre}", { nombre: c.usuario })}` : ""}{" "}
             {c.anulada && (
-              <Insignia tono="rojo">{c.anuladaEn ? t("Anulada {fecha}", { fecha: fechaHora(c.anuladaEn) }) : t("Anulada")}</Insignia>
+              <Insignia tono="rojo">
+                {c.anuladaEn ? t("Anulada {fecha}", { fecha: fechaHora(c.anuladaEn) }) : t("Anulada")}
+                {c.anuladaPor ? ` · ${c.anuladaPor}` : ""}
+              </Insignia>
             )}
           </>
         }
@@ -91,8 +97,31 @@ export default async function Compra({
             <dt>{t("Total")}</dt>
             <dd className="tabular-nums">{euros(c.total)}</dd>
           </div>
+          <div className="flex justify-between gap-3 text-zinc-500">
+            <dt>{t("La pagó")}</dt>
+            <dd className="text-right">{c.paga ?? t("Dinero de la tienda o sin indicar")}</dd>
+          </div>
           {c.notas && <p className="pt-2 text-zinc-600">{c.notas}</p>}
         </dl>
+        {!c.anulada && socios.length > 0 && (
+          <FormAccion accion={cambiarPagaCompra} className="flex flex-wrap items-end gap-2 border-t border-zinc-200 px-4 py-3">
+            <input type="hidden" name="id" value={c.id} />
+            <div className="min-w-0 flex-1 sm:max-w-sm">
+              <label className="etiqueta" htmlFor="paga">
+                {t("¿Quién la pagó?")}
+              </label>
+              <select id="paga" name="paga" defaultValue={c.pagaId ?? "comun"} className="campo">
+                {socios.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {t("{nombre}, de su bolsillo", { nombre: s.nombre })}
+                  </option>
+                ))}
+                <option value="comun">{t("Dinero de la tienda (caja o cuenta común)")}</option>
+              </select>
+            </div>
+            <BotonEnviar className="btn-sec">{t("Cambiar")}</BotonEnviar>
+          </FormAccion>
+        )}
       </div>
 
       {c.anulada && (

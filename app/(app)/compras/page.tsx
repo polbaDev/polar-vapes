@@ -41,6 +41,7 @@ export default async function Compras() {
                 <th>{t("Factura")}</th>
                 <th className="text-right">{t("Uds.")}</th>
                 <th className="text-right">{t("Total")}</th>
+                <th>{t("La pagó")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -52,6 +53,7 @@ export default async function Compras() {
                   <td>{c.numFactura ?? <span className="text-zinc-400">—</span>}</td>
                   <td className="text-right tabular-nums">{c.unidades}</td>
                   <td className="text-right font-medium tabular-nums">{euros(c.total)}</td>
+                  <td>{c.paga ?? <span className="text-zinc-400">{t("La tienda")}</span>}</td>
                   <td className="text-right">
                     {c.anulada && <Insignia tono="rojo">{t("Anulada")}</Insignia>}{" "}
                     <Link href={`/compras/${c.id}`} className="enlace text-sm">

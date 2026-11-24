@@ -27,7 +27,7 @@ export default async function Cierre({
     <>
       <Cabecera
         titulo={t("Cierre de caja #{id}", { id: c.id })}
-        subtitulo={`${fechaHora(c.desde)} → ${fechaHora(c.hasta)}`}
+        subtitulo={`${fechaHora(c.desde)} → ${fechaHora(c.hasta)}${c.usuario ? ` · ${t("Cerró {nombre}", { nombre: c.usuario })}` : ""}`}
         volver={{ href: "/caja", texto: t("Caja") }}
         acciones={
           <Link href={`/ventas?desde=${diaISO(c.desde)}&hasta=${diaISO(c.hasta)}`} className="btn-sec">
@@ -44,7 +44,7 @@ export default async function Cierre({
 
       <div className="mb-5 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">
         <Dato etiqueta={t("Resultado")} valor={<InsigniaDescuadre valor={descuadre} />} />
-        <Dato etiqueta={t("Te llevaste")} valor={euros(teLlevaste)} />
+        <Dato etiqueta={t("Se llevó")} valor={euros(teLlevaste)} detalle={c.recibe ?? (teLlevaste > 0 && c.usuario ? t("La cuenta de la tienda") : undefined)} />
         <Dato etiqueta={t("Dejaste en caja")} valor={euros(c.fondoSiguiente)} />
       </div>
 
@@ -107,7 +107,14 @@ export default async function Cierre({
                 {c.movimientos.map((m) => (
                   <tr key={m.id}>
                     <td className="whitespace-nowrap text-xs text-zinc-500">{fechaHora(m.fecha)}</td>
-                    <td>{m.motivo}</td>
+                    <td>
+                      {m.motivo}
+                      {m.socio && (
+                        <div className="text-xs text-zinc-500">
+                          {m.tipo === "salida" ? t("Se lo lleva {nombre}", { nombre: m.socio }) : t("Lo pone {nombre}", { nombre: m.socio })}
+                        </div>
+                      )}
+                    </td>
                     <td className={`whitespace-nowrap text-right font-medium tabular-nums ${m.tipo === "salida" ? "text-red-700" : "text-emerald-700"}`}>
                       {m.tipo === "salida" ? "−" : "+"}
                       {euros(m.importe)}

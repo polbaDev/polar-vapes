@@ -2,17 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logotipo } from "@/components/marca";
 import { BarraMovil, MenuUsuario, NavPrincipal, NavSecundariaMovil, Riel } from "@/components/nav";
-import { leerAjustesYSesion } from "@/lib/ajustes";
+import { leerAjustes } from "@/lib/ajustes";
 import { contarPendientes } from "@/lib/reservas";
-import { sesionAlDia } from "@/lib/session";
+import { usuarioActual } from "@/lib/session";
 
 // Todas las pantallas leen la base de datos en cada visita
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [pendientes, { ajustes, versionSesion }] = await Promise.all([contarPendientes(), leerAjustesYSesion()]);
-  // Sesión cerrada en todos los dispositivos: el Proxy la mira en cada petición (con unos segundos de margen); aquí, al momento
-  if (!(await sesionAlDia(versionSesion))) redirect("/login");
+  const [pendientes, ajustes, yo] = await Promise.all([contarPendientes(), leerAjustes(), usuarioActual()]);
+  // Sesión cerrada en todos los dispositivos o cuenta desactivada: el Proxy la mira en cada petición
+  // (con unos segundos de margen); aquí, al momento
+  if (!yo) redirect("/login");
   return (
     <div className="min-h-dvh pb-28 lg:pb-14">
       <header className="cab">
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <NavPrincipal pendientes={pendientes} />
           <NavSecundariaMovil pendientes={pendientes} />
-          <MenuUsuario nombreTienda={ajustes.nombreTienda} />
+          <MenuUsuario nombreTienda={ajustes.nombreTienda} nombre={yo.nombre} />
         </div>
       </header>
       <Riel />

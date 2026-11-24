@@ -60,9 +60,29 @@ function nuevaClave() {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]; reserva?: ReservaEnTpv | null }) {
+export type SocioEnTpv = { id: number; nombre: string };
+
+export function Tpv({
+  variantes,
+  reserva = null,
+  socios = [],
+  yo,
+  tarjetaA = null,
+}: {
+  variantes: VarianteLigera[];
+  reserva?: ReservaEnTpv | null;
+  // Socios a los que les puede llegar un Bizum (a su móvil)
+  socios?: SocioEnTpv[];
+  // Cuenta de quien cobra
+  yo: number;
+  // Socio al que le llega lo cobrado con tarjeta (null: cuenta de la tienda)
+  tarjetaA?: string | null;
+}) {
   const t = useT();
   const router = useRouter();
+  // El Bizum le llega por defecto a quien cobra (si es socio)
+  const recibePorDefecto = socios.find((s) => s.id === yo)?.id ?? socios[0]?.id ?? null;
+  const [recibe, setRecibe] = useState<number | null>(recibePorDefecto);
   const [q, setQ] = useState("");
   const [producto, setProducto] = useState<number | null>(null);
   // Al cobrar una reserva, el ticket empieza con sus productos (se pueden cambiar)
@@ -137,7 +157,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
   // Si el ticket cambia, la clave del último intento ya no vale: otro ticket igual puede ser otra venta
   useEffect(() => {
     intento.current = null;
-  }, [lineas, pago, desc, reservaActiva?.id]);
+  }, [lineas, pago, desc, reservaActiva?.id, recibe]);
 
   function enTicket(id: number) {
     return lineas.find((l) => l.id === id)?.cantidad ?? 0;
@@ -230,12 +250,14 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
     if (lineas.length === 0) return setError(t("El ticket está vacío."));
     if (!mayorEdad) return setError(t("Marca la casilla de mayor de edad antes de cobrar."));
     // Mismo ticket que el último intento sin confirmar → misma clave: si aquel se guardó, no se cobra dos veces
+    const recibeId = pago === "bizum" ? recibe : null;
     const huella = JSON.stringify([
       [...lineas].sort((a, b) => a.id - b.id).map((l) => [l.id, l.cantidad]),
       pago,
       desc,
       reservaActiva?.id ?? null,
       total,
+      recibeId,
     ]);
     if (intento.current?.huella !== huella) intento.current = { clave: nuevaClave(), huella };
     const clave = intento.current.clave;
@@ -255,6 +277,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
           reservaId: reservaActiva?.id ?? null,
           clave,
           totalEsperado: total,
+          recibeId,
         }),
         new Promise<never>((_, rechazar) => {
           reloj = setTimeout(() => {
@@ -305,6 +328,7 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
     setEntregado("");
     setMayorEdad(false);
     setPago("efectivo");
+    setRecibe(recibePorDefecto);
     buscador.current?.focus();
   }
 
@@ -553,6 +577,35 @@ export function Tpv({ variantes, reserva = null }: { variantes: VarianteLigera[]
                 </button>
               ))}
             </div>
+
+            {pago === "bizum" && socios.length > 1 && (
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-zinc-500">{t("Le llega a")}</span>
+                <div className="segmento" role="radiogroup" aria-label={t("A quién le llega el Bizum")}>
+                  {socios.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={recibe === s.id}
+                      onClick={() => setRecibe(s.id)}
+                      disabled={pendiente}
+                      className="py-1 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {s.nombre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {pago === "bizum" && socios.length === 1 && (
+              <p className="text-xs text-zinc-500">{t("Le llega a {nombre}.", { nombre: socios[0].nombre })}</p>
+            )}
+            {pago === "tarjeta" && (
+              <p className="text-xs text-zinc-500">
+                {tarjetaA ? t("Entra en la cuenta de {nombre}.", { nombre: tarjetaA }) : t("Entra en la cuenta de la tienda.")}
+              </p>
+            )}
 
             {pago === "efectivo" && (
               <div className="space-y-2">

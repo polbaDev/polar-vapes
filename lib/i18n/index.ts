@@ -11,11 +11,12 @@ import compras from "./ca/compras.json";
 import catalogo from "./ca/catalogo.json";
 import caja from "./ca/caja.json";
 import reservas from "./ca/reservas.json";
+import socios from "./ca/socios.json";
 
 export type Vars = Record<string, string | number>;
 export type T = (texto: string, vars?: Vars) => string;
 
-const CA: Record<string, string> = { ...comun, ...ventas, ...compras, ...catalogo, ...caja, ...reservas };
+const CA: Record<string, string> = { ...comun, ...ventas, ...compras, ...catalogo, ...caja, ...reservas, ...socios };
 const DICCIONARIOS: Record<Idioma, Record<string, string> | null> = { es: null, ca: CA };
 // Textos que ya son una traducción: mensajeError vuelve a pasar por t() mensajes que ya llegan traducidos
 const YA_TRADUCIDOS = new Set(Object.values(CA));

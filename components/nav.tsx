@@ -8,7 +8,7 @@ import { BotonTema, FilasPreferencias, useT } from "@/components/preferencias";
 import { salir } from "@/lib/actions/auth";
 import { tx } from "@/lib/i18n";
 
-type Enlace = { href: string; texto: string; icono: NombreIcono };
+type Enlace = { href: string; texto: string; icono: NombreIcono; soloEscritorio?: boolean };
 
 // Secciones (textos en castellano: se traducen al pintar)
 const SECCIONES: Enlace[] = [
@@ -19,6 +19,8 @@ const SECCIONES: Enlace[] = [
   { href: "/reservas", texto: tx("Reservas"), icono: "pedido" },
   { href: "/caja", texto: tx("Caja"), icono: "carrito" },
   { href: "/catalogo", texto: tx("Catálogo"), icono: "tienda" },
+  // En el móvil no cabe arriba: está en el menú del círculo y en Inicio
+  { href: "/socios", texto: tx("Socios"), icono: "socios", soloEscritorio: true },
 ];
 
 // Accesos rápidos del riel (escritorio)
@@ -104,12 +106,14 @@ export function NavSecundariaMovil({ pendientes = 0 }: { pendientes?: number }) 
   const t = useT();
   return (
     <nav className="segmento ml-auto vidrio lg:hidden" aria-label={t("Más secciones")}>
-      {SECCIONES.slice(4).map((e) => (
-        <Link key={e.href} href={e.href} aria-current={activo(path, e.href) ? "page" : undefined} className="inline-flex items-center !px-2.5 sm:!px-3.5">
-          {t(e.texto)}
-          {e.href === "/reservas" && <Contador n={pendientes} />}
-        </Link>
-      ))}
+      {SECCIONES.slice(4)
+        .filter((e) => !e.soloEscritorio)
+        .map((e) => (
+          <Link key={e.href} href={e.href} aria-current={activo(path, e.href) ? "page" : undefined} className="inline-flex items-center !px-2.5 sm:!px-3.5">
+            {t(e.texto)}
+            {e.href === "/reservas" && <Contador n={pendientes} />}
+          </Link>
+        ))}
     </nav>
   );
 }
@@ -177,8 +181,8 @@ function iniciales(nombre: string) {
   );
 }
 
-// Menú de la tienda: tema, idioma, ajustes y salir
-export function MenuUsuario({ nombreTienda }: { nombreTienda: string }) {
+// Menú de la cuenta: tema, idioma, socios, ajustes y salir
+export function MenuUsuario({ nombreTienda, nombre }: { nombreTienda: string; nombre: string }) {
   const t = useT();
   const cerrar = () => document.getElementById("menu-usuario")?.hidePopover();
   return (
@@ -187,19 +191,27 @@ export function MenuUsuario({ nombreTienda }: { nombreTienda: string }) {
         type="button"
         popoverTarget="menu-usuario"
         className="boton-ico boton-ico--cab"
-        title={t("Menú")}
-        aria-label={t("Menú")}
+        title={t("Menú de {nombre}", { nombre })}
+        aria-label={t("Menú de {nombre}", { nombre })}
       >
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-acento text-[.72rem] font-bold text-[#2a0c14]">{iniciales(nombreTienda)}</span>
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-acento text-[.72rem] font-bold text-[#2a0c14]">{iniciales(nombre)}</span>
       </button>
       <div id="menu-usuario" popover="auto" className="pop pop--cab">
         <div className="pop__cab">
-          <b>{nombreTienda}</b>
-          <span>{t("Gestión de la tienda")}</span>
+          <b>{nombre}</b>
+          <span>{nombreTienda}</span>
         </div>
         <FilasPreferencias />
         <div className="pop__sep" />
         <div className="pop__lista">
+          <Link href="/socios" onClick={cerrar}>
+            <Icono nombre="socios" className="h-[15px] w-[15px]" />
+            {t("Cuentas entre socios")}
+          </Link>
+          <Link href="/socios/cuentas" onClick={cerrar}>
+            <Icono nombre="llave" className="h-[15px] w-[15px]" />
+            {t("Cuentas y contraseñas")}
+          </Link>
           <Link href="/ajustes" onClick={cerrar}>
             <Icono nombre="ajustes" className="h-[15px] w-[15px]" />
             {t("Ajustes del catálogo")}

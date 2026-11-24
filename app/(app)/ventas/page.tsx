@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Cabecera, Dato, Insignia, Vacio } from "@/components/ui";
 import { listarVentas } from "@/lib/queries";
+import { listarUsuarios } from "@/lib/usuarios";
 import { euros, fechaHora, hoyISO } from "@/lib/format";
 import { METODOS_PAGO, etiqueta } from "@/lib/constants";
 import { tx } from "@/lib/i18n";
@@ -19,7 +20,11 @@ const PERIODOS = [
   { id: "mes", texto: tx("Este mes") },
 ];
 
-export default async function Ventas({ searchParams }: { searchParams: Promise<{ p?: string; desde?: string; hasta?: string }> }) {
+export default async function Ventas({
+  searchParams,
+}: {
+  searchParams: Promise<{ p?: string; desde?: string; hasta?: string; u?: string }>;
+}) {
   const t = await traductor();
   const sp = await searchParams;
   const hoy = hoyISO();
@@ -35,8 +40,13 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
   else if (periodo === "30") desde = restarDias(hoy, 29);
   else if (periodo === "mes") desde = `${hoy.slice(0, 7)}-01`;
 
-  const ventas = await listarVentas(desde, hasta);
+  // ?u=3 → solo las de esa persona (u=0: las de antes de las cuentas)
+  const persona = sp.u !== undefined && /^\d{1,9}$/.test(sp.u) ? Number(sp.u) : undefined;
+  const [ventas, personas] = await Promise.all([listarVentas(desde, hasta, true, persona), listarUsuarios()]);
   const validas = ventas.filter((v) => !v.anulada);
+  // Enlaces que conservan el periodo y cambian la persona (o al revés)
+  const filtroPeriodo = periodo === "rango" ? `desde=${desde}&hasta=${hasta}` : `p=${periodo}`;
+  const conPersona = (u: number | undefined) => `/ventas?${filtroPeriodo}${u === undefined ? "" : `&u=${u}`}`;
   // Lo que queda cobrado de cada venta, descontando devoluciones parciales
   const neto = (v: (typeof ventas)[number]) => Number(v.total) - Number(v.devuelto);
   const total = validas.reduce((s, v) => s + neto(v), 0);
@@ -61,7 +71,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
         {PERIODOS.map((p) => (
           <Link
             key={p.id}
-            href={`/ventas?p=${p.id}`}
+            href={`/ventas?p=${p.id}${persona === undefined ? "" : `&u=${persona}`}`}
             aria-current={periodo === p.id ? "true" : undefined}
             className="chip"
           >
@@ -71,9 +81,23 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
         <form className="flex items-end gap-2" action="/ventas">
           <input type="date" name="desde" defaultValue={desde} className="campo py-1.5 text-sm" aria-label={t("Desde")} />
           <input type="date" name="hasta" defaultValue={hasta} className="campo py-1.5 text-sm" aria-label={t("Hasta")} />
+          {persona !== undefined && <input type="hidden" name="u" value={persona} />}
           <button className="btn-sec py-1.5 text-sm">{t("Ver")}</button>
         </form>
       </div>
+
+      {personas.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("Filtrar por persona")}>
+          <Link href={conPersona(undefined)} aria-current={persona === undefined ? "true" : undefined} className="chip">
+            {t("Todos")}
+          </Link>
+          {personas.map((u) => (
+            <Link key={u.id} href={conPersona(u.id)} aria-current={persona === u.id ? "true" : undefined} className="chip">
+              {u.nombre}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Dato
@@ -102,6 +126,7 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
               <tr>
                 <th>{t("Fecha")}</th>
                 <th>{t("Pago")}</th>
+                <th>{t("Cobró")}</th>
                 <th className="text-right">{t("Uds.")}</th>
                 <th className="text-right">{t("Total")}</th>
                 <th className="text-right">{t("Beneficio")}</th>
@@ -112,7 +137,11 @@ export default async function Ventas({ searchParams }: { searchParams: Promise<{
               {ventas.map((v) => (
                 <tr key={v.id} className={v.anulada ? "text-zinc-400 line-through" : ""}>
                   <td className="whitespace-nowrap">{fechaHora(v.fecha)}</td>
-                  <td>{t(etiqueta(METODOS_PAGO, v.metodoPago))}</td>
+                  <td>
+                    {t(etiqueta(METODOS_PAGO, v.metodoPago))}
+                    {v.recibe && <div className="text-xs text-zinc-500">{t("a {nombre}", { nombre: v.recibe })}</div>}
+                  </td>
+                  <td>{v.vendedor ?? <span className="text-zinc-400">—</span>}</td>
                   <td className="text-right tabular-nums">{v.unidades}</td>
                   <td className="text-right font-medium tabular-nums">
                     {euros(v.anulada ? v.total : neto(v))}

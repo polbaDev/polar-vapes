@@ -4,6 +4,8 @@ import { FormAccion, BotonEnviar } from "@/components/form-accion";
 import { FormCierre } from "@/components/form-cierre";
 import { crearMovimientoCaja, borrarMovimientoCaja } from "@/lib/actions/caja";
 import { estadoCaja, listarCierres } from "@/lib/caja";
+import { exigirSesion } from "@/lib/session";
+import { listarSocios } from "@/lib/usuarios";
 import { euros, fechaHora } from "@/lib/format";
 import { traductor } from "@/lib/i18n/servidor";
 
@@ -14,7 +16,7 @@ export async function generateMetadata() {
 
 export default async function Caja() {
   const t = await traductor();
-  const [estado, cierres] = await Promise.all([estadoCaja(), listarCierres()]);
+  const [estado, cierres, socios, yo] = await Promise.all([estadoCaja(), listarCierres(), listarSocios(), exigirSesion()]);
   const { periodo, cuentas, movimientos, esperado } = estado;
   const movimientoSinFondo = cuentas.ventasEfectivo - cuentas.devolucionesEfectivo + cuentas.entradas - cuentas.salidas;
 
@@ -87,7 +89,14 @@ export default async function Caja() {
                   {movimientos.map((m) => (
                     <tr key={m.id}>
                       <td className="whitespace-nowrap text-xs text-zinc-500">{fechaHora(m.fecha)}</td>
-                      <td>{m.motivo}</td>
+                      <td>
+                        {m.motivo}
+                        {m.socio && (
+                          <div className="text-xs text-zinc-500">
+                            {m.tipo === "salida" ? t("Se lo lleva {nombre}", { nombre: m.socio }) : t("Lo pone {nombre}", { nombre: m.socio })}
+                          </div>
+                        )}
+                      </td>
                       <td className={`whitespace-nowrap text-right font-medium tabular-nums ${m.tipo === "salida" ? "text-red-700" : "text-emerald-700"}`}>
                         {m.tipo === "salida" ? "−" : "+"}
                         {euros(m.importe)}
@@ -118,12 +127,36 @@ export default async function Caja() {
               <input name="importe" inputMode="decimal" placeholder={t("Importe €")} required aria-label={t("Importe")} className="campo text-right" />
               <input name="motivo" placeholder={t("Motivo (ej. Al banco)")} required aria-label={t("Motivo")} className="campo" />
               <BotonEnviar className="btn-sec">{t("Apuntar")}</BotonEnviar>
+              {socios.length > 0 && (
+                <div className="sm:col-span-4">
+                  <label className="etiqueta" htmlFor="socio_caja">
+                    {t("¿Se lo lleva o lo pone un socio?")}
+                  </label>
+                  <select id="socio_caja" name="socio" defaultValue="comun" className="campo sm:w-80">
+                    <option value="comun">{t("No: es dinero de la tienda (pagos, banco de la tienda…)")}</option>
+                    {socios.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {t("Si un socio se lleva el dinero, o lo pone de su bolsillo, cuenta en las cuentas entre socios.")}
+                  </p>
+                </div>
+              )}
             </FormAccion>
           </section>
         </div>
 
         <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-          <FormCierre ultimoId={periodo.ultimoId} fondoInicial={periodo.fondoInicial} movimientoSinFondo={movimientoSinFondo} />
+          <FormCierre
+            ultimoId={periodo.ultimoId}
+            fondoInicial={periodo.fondoInicial}
+            movimientoSinFondo={movimientoSinFondo}
+            socios={socios}
+            yo={yo.id}
+          />
         </aside>
       </div>
 
@@ -140,7 +173,7 @@ export default async function Caja() {
                 <th className="text-right">{t("Debería haber")}</th>
                 <th className="text-right">{t("Contado")}</th>
                 <th>{t("Resultado")}</th>
-                <th className="text-right">{t("Te llevaste")}</th>
+                <th className="text-right">{t("Se llevó")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -154,7 +187,10 @@ export default async function Caja() {
                   <td>
                     <InsigniaDescuadre valor={c.descuadre} />
                   </td>
-                  <td className="text-right tabular-nums">{euros(Number(c.contado) - Number(c.fondoSiguiente))}</td>
+                  <td className="text-right tabular-nums">
+                    {euros(Number(c.contado) - Number(c.fondoSiguiente))}
+                    {c.recibe && <div className="text-xs text-zinc-500">{c.recibe}</div>}
+                  </td>
                   <td className="text-right">
                     <Link href={`/caja/${c.id}`} className="enlace text-sm">
                       {t("Ver")}

@@ -1,7 +1,9 @@
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
 import { Logotipo } from "@/components/marca";
 import { MenuPreferencias } from "@/components/preferencias";
-import { entrar } from "@/lib/actions/auth";
+import { crearPrimeraCuenta, entrar } from "@/lib/actions/auth";
+import { MIN_CLAVE } from "@/lib/claves";
+import { hayCuentas } from "@/lib/usuarios";
 import { traductor } from "@/lib/i18n/servidor";
 import { avisoAuth } from "@/lib/session";
 
@@ -14,8 +16,10 @@ export default async function Login() {
   const t = await traductor();
   // Sin APP_PASSWORD y AUTH_SECRET buenos no se deja entrar: se explica aquí antes de que escriban nada
   const aviso = avisoAuth(t);
+  // Si la base de datos no responde se enseña la entrada normal: al probar, dirá qué pasa
+  const primeraVez = !(await hayCuentas().catch(() => true));
   return (
-    <main className="relative flex min-h-dvh items-center justify-center px-4">
+    <main className="relative flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="absolute right-4 top-4">
         <MenuPreferencias />
       </div>
@@ -34,17 +38,63 @@ export default async function Login() {
             {aviso}
           </p>
         )}
-        <FormAccion accion={entrar} className="tarjeta space-y-4 p-6">
-          <div>
-            <label htmlFor="password" className="etiqueta">
-              {t("Contraseña")}
-            </label>
-            <input id="password" name="password" type="password" autoComplete="current-password" required autoFocus className="campo" />
-          </div>
-          <BotonEnviar className="btn w-full py-2.5" textoPendiente={t("Entrando…")}>
-            {t("Entrar")}
-          </BotonEnviar>
-        </FormAccion>
+        {primeraVez ? (
+          <FormAccion accion={crearPrimeraCuenta} className="tarjeta space-y-4 p-6">
+            <div>
+              <h2 className="font-semibold">{t("Crea tu cuenta")}</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                {t("Cada uno entra con la suya y lo que hace queda a su nombre. Después crearás la de tu socio.")}
+              </p>
+            </div>
+            <div>
+              <label htmlFor="password_app" className="etiqueta">
+                {t("Contraseña de la app")}
+              </label>
+              <input id="password_app" name="password_app" type="password" autoComplete="off" required autoFocus className="campo" />
+              <p className="mt-1 text-xs text-zinc-500">{t("La que te enseñó arrancar.bat (APP_PASSWORD en el archivo .env). Solo hace falta esta vez.")}</p>
+            </div>
+            <div>
+              <label htmlFor="nombre" className="etiqueta">
+                {t("Tu nombre")}
+              </label>
+              <input id="nombre" name="nombre" autoComplete="username" required maxLength={40} className="campo" />
+            </div>
+            <div>
+              <label htmlFor="clave" className="etiqueta">
+                {t("Tu contraseña")}
+              </label>
+              <input id="clave" name="clave" type="password" autoComplete="new-password" required minLength={MIN_CLAVE} className="campo" />
+              <p className="mt-1 text-xs text-zinc-500">{t("Al menos {n} caracteres.", { n: MIN_CLAVE })}</p>
+            </div>
+            <div>
+              <label htmlFor="repetir" className="etiqueta">
+                {t("Repite la contraseña")}
+              </label>
+              <input id="repetir" name="repetir" type="password" autoComplete="new-password" required className="campo" />
+            </div>
+            <BotonEnviar className="btn w-full py-2.5" textoPendiente={t("Creando…")}>
+              {t("Crear cuenta y entrar")}
+            </BotonEnviar>
+          </FormAccion>
+        ) : (
+          <FormAccion accion={entrar} className="tarjeta space-y-4 p-6">
+            <div>
+              <label htmlFor="nombre" className="etiqueta">
+                {t("Nombre")}
+              </label>
+              <input id="nombre" name="nombre" autoComplete="username" autoCapitalize="words" required autoFocus className="campo" />
+            </div>
+            <div>
+              <label htmlFor="password" className="etiqueta">
+                {t("Contraseña")}
+              </label>
+              <input id="password" name="password" type="password" autoComplete="current-password" required className="campo" />
+            </div>
+            <BotonEnviar className="btn w-full py-2.5" textoPendiente={t("Entrando…")}>
+              {t("Entrar")}
+            </BotonEnviar>
+          </FormAccion>
+        )}
       </div>
     </main>
   );

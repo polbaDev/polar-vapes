@@ -31,14 +31,20 @@ export function FormCierre({
   ultimoId,
   fondoInicial,
   movimientoSinFondo,
+  socios = [],
+  yo,
 }: {
   ultimoId: number | null;
   // null si es el primer cierre (hay que preguntarlo)
   fondoInicial: number | null;
   // ventas en efectivo - anuladas + entradas - salidas
   movimientoSinFondo: number;
+  // Socios que se pueden llevar el efectivo (cuenta en las cuentas entre socios)
+  socios?: { id: number; nombre: string }[];
+  yo: number;
 }) {
   const t = useT();
+  const [recibe, setRecibe] = useState(socios.some((s) => s.id === yo) ? String(yo) : socios.length ? String(socios[0].id) : "comun");
   const [fondoIni, setFondoIni] = useState("");
   const [contado, setContado] = useState("");
   const [fondoSig, setFondoSig] = useState(fondoInicial !== null ? aTexto(fondoInicial) : "");
@@ -174,6 +180,23 @@ export function FormCierre({
               : t("Te llevas {importe}", { importe: eur.format(teLlevas) })}
         </p>
       </div>
+
+      {socios.length > 0 && teLlevas !== null && teLlevas > 0 && (
+        <div>
+          <label className="etiqueta" htmlFor="recibe_cierre">
+            {t("¿Quién se lleva los {importe}?", { importe: eur.format(teLlevas) })}
+          </label>
+          <select id="recibe_cierre" name="recibe" value={recibe} onChange={(e) => setRecibe(e.target.value)} className="campo">
+            {socios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nombre}
+              </option>
+            ))}
+            <option value="comun">{t("Nadie: va a la cuenta de la tienda")}</option>
+          </select>
+          <p className="mt-1 text-xs text-zinc-500">{t("Cuenta en las cuentas entre socios.")}</p>
+        </div>
+      )}
 
       <div>
         <label className="etiqueta" htmlFor="notas">

@@ -18,6 +18,7 @@ import {
 import { costeTrasAnularCompra } from "@/lib/coste-calculo";
 import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { exigirSesion } from "@/lib/session";
+import { esSocioActivo, tarjetaRecibe } from "@/lib/socios";
 import { METODOS_PAGO, MOTIVOS_AJUSTE, valores, etiqueta } from "@/lib/constants";
 import { euros, redondear } from "@/lib/format";
 import { tx } from "@/lib/i18n";
@@ -31,6 +32,27 @@ function refrescarStock() {
   revalidatePath("/", "layout");
 }
 
+type Ejecutor = NonNullable<Parameters<typeof esSocioActivo>[1]>;
+
+const FALTA_BIZUM_VENTA = tx("Elige a quién le llega el Bizum.");
+const FALTA_BIZUM_DEVOLUCION = tx("Elige quién devuelve el Bizum.");
+
+// Socio que tiene (o pone) el dinero de un cobro o un pago, según cómo se pague:
+//  - efectivo: va al cajón, que es de todos (null)
+//  - tarjeta: a quien esté elegido en Socios → Cuentas (null = cuenta de la tienda)
+//  - bizum: al socio que se elige en la pantalla (a su móvil). Obligatorio si hay socios.
+async function socioDelDinero(ej: Ejecutor, metodo: string, elegido: number | null | undefined, faltaBizum: string, t: (s: string) => string) {
+  if (metodo === "efectivo") return null;
+  if (metodo === "tarjeta") return tarjetaRecibe(ej);
+  if (elegido != null) {
+    if (!Number.isInteger(elegido) || !(await esSocioActivo(elegido, ej))) throw new Error(t("Elige un socio de la lista."));
+    return elegido;
+  }
+  const [hay] = (await ej.execute(sql`select exists (select 1 from usuarios where socio and activo) as hay`)) as unknown as { hay: boolean }[];
+  if (hay.hay) throw new Error(t(faltaBizum));
+  return null;
+}
+
 // ======================= COMPRAS =======================
 
 export type LineaCompraInput = { varianteId: number; cantidad: number; costeUnidad: number; lote?: string | null };
@@ -42,13 +64,18 @@ export type CompraInput = {
   gastosEnvio: number;
   notas?: string | null;
   lineas: LineaCompraInput[];
+  // Socio que la paga de su bolsillo; null = con dinero de la tienda (caja o cuenta común)
+  pagaId: number | null;
 };
 
 export async function crearCompra(input: CompraInput): Promise<Resultado> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.fecha)) throw new Error(tx("Fecha no válida."));
+    if (input.pagaId != null && (!Number.isInteger(input.pagaId) || !(await esSocioActivo(input.pagaId)))) {
+      throw new Error(tx("Elige quién paga la compra."));
+    }
     const lineas = input.lineas.filter((l) => l.varianteId);
     if (lineas.length === 0) throw new Error(tx("Añade al menos un producto a la compra."));
     for (const l of lineas) {
@@ -80,6 +107,8 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
           gastosEnvio: envio.toFixed(2),
           total: total.toFixed(2),
           notas: input.notas?.trim() || null,
+          usuarioId: yo.id,
+          pagaId: input.pagaId ?? null,
         })
         .returning({ id: compras.id });
 
@@ -102,6 +131,7 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
           tipo: "compra",
           cantidad: l.cantidad,
           compraId: c.id,
+          usuarioId: yo.id,
         });
         await tx.update(variantes).set({ costeMedio: nuevoCoste.toFixed(4) }).where(eq(variantes.id, l.varianteId));
         v.stock += l.cantidad;
@@ -117,7 +147,7 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
 }
 
 export async function anularCompra(_: Resultado, fd: FormData): Promise<Resultado> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   const id = entero(fd, "id");
   if (!id) return { error: t("Compra no válida.") };
@@ -185,12 +215,13 @@ export async function anularCompra(_: Resultado, fd: FormData): Promise<Resultad
           tipo: "anulacion_compra",
           cantidad: -l.cantidad,
           compraId: id,
+          usuarioId: yo.id,
         });
         await tx.update(variantes).set({ costeMedio: coste.toFixed(4) }).where(eq(variantes.id, l.varianteId));
         v.stock = restante;
         v.coste = coste;
       }
-      await tx.update(compras).set({ anulada: true, anuladaEn: new Date() }).where(eq(compras.id, id));
+      await tx.update(compras).set({ anulada: true, anuladaEn: new Date(), anuladaPorId: yo.id }).where(eq(compras.id, id));
     });
   } catch (e) {
     return { error: mensajeError(e, t) };
@@ -213,6 +244,8 @@ export type VentaInput = {
   clave?: string | null;
   // Total que enseña el TPV: si los precios han cambiado desde entonces, no se cobra
   totalEsperado?: number | null;
+  // Con Bizum: socio al que le llega (a su móvil)
+  recibeId?: number | null;
 };
 
 // Por qué no se puede cobrar una reserva que ya no está activa (el estado viene de la base de datos)
@@ -230,7 +263,7 @@ async function ventaConClave(q: Tx | typeof db, clave: string) {
 }
 
 export async function crearVenta(input: VentaInput): Promise<Resultado & { total?: number; repetida?: boolean }> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   const clave = typeof input.clave === "string" && /^[A-Za-z0-9-]{8,64}$/.test(input.clave) ? input.clave : null;
   try {
@@ -293,6 +326,7 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           t("Los precios han cambiado: el total ahora es {total}. Revisa el ticket y vuelve a cobrar.", { total: euros(total) }),
         );
       }
+      const recibeId = await socioDelDinero(tx, input.metodoPago, input.recibeId, FALTA_BIZUM_VENTA, t);
 
       const [ve] = await tx
         .insert(ventas)
@@ -307,6 +341,8 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           mayorEdadVerificado: true,
           notas: input.notas?.trim() || null,
           clave,
+          usuarioId: yo.id,
+          recibeId,
         })
         .returning({ id: ventas.id });
 
@@ -319,7 +355,7 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           precioUnidad: v.precio.toFixed(2),
           costeUnidad: v.coste.toFixed(4),
         });
-        await tx.insert(movimientosStock).values({ varianteId: vid, tipo: "venta", cantidad: -c, ventaId: ve.id });
+        await tx.insert(movimientosStock).values({ varianteId: vid, tipo: "venta", cantidad: -c, ventaId: ve.id, usuarioId: yo.id });
       }
       if (reservaId) {
         await tx.execute(
@@ -343,7 +379,7 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
 }
 
 export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   const id = entero(fd, "id");
   if (!id) return { error: t("Venta no válida.") };
@@ -369,13 +405,14 @@ export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado
           tipo: "anulacion_venta",
           cantidad: l.cantidad,
           ventaId: id,
+          usuarioId: yo.id,
         });
         await tx.update(variantes).set({ costeMedio: coste.toFixed(4) }).where(eq(variantes.id, l.varianteId));
         v.stock += l.cantidad;
         v.coste = coste;
       }
       // La hora de anulación decide en qué cierre de caja sale el dinero devuelto
-      await tx.update(ventas).set({ anulada: true, anuladaEn: sql`clock_timestamp()` }).where(eq(ventas.id, id));
+      await tx.update(ventas).set({ anulada: true, anuladaEn: sql`clock_timestamp()`, anuladaPorId: yo.id }).where(eq(ventas.id, id));
     });
   } catch (e) {
     return { error: mensajeError(e, t) };
@@ -392,10 +429,12 @@ export type DevolucionInput = {
   metodoPago: string;
   vuelveAlStock: boolean;
   motivo?: string | null;
+  // Con Bizum: socio que devuelve el dinero (desde su móvil)
+  pagaId?: number | null;
 };
 
 export async function crearDevolucion(input: DevolucionInput): Promise<Resultado & { total?: number }> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   try {
     if (!valores(METODOS_PAGO).includes(input.metodoPago)) throw new Error(tx("Elige cómo devuelves el dinero."));
@@ -445,6 +484,7 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
         })),
       );
 
+      const pagaId = await socioDelDinero(tx, input.metodoPago, input.pagaId, FALTA_BIZUM_DEVOLUCION, t);
       const [d] = await tx
         .insert(devoluciones)
         .values({
@@ -455,6 +495,8 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
           importe: total.toFixed(2),
           vuelveAlStock: input.vuelveAlStock,
           motivo: input.motivo?.trim() || null,
+          usuarioId: yo.id,
+          pagaId,
         })
         .returning({ id: devoluciones.id });
 
@@ -480,6 +522,7 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
             cantidad: cant,
             motivo: input.motivo?.trim() || null,
             ventaId: ve.id,
+            usuarioId: yo.id,
           });
           await tx.update(variantes).set({ costeMedio: coste.toFixed(4) }).where(eq(variantes.id, l.varianteId));
           v.stock += cant;
@@ -498,7 +541,7 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
 // ======================= AJUSTES DE INVENTARIO =======================
 
 export async function ajustarStock(_: Resultado, fd: FormData): Promise<Resultado> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   const varianteId = entero(fd, "variante_id");
   const modo = texto(fd, "modo"); // "contado" | "diferencia"
@@ -528,6 +571,7 @@ export async function ajustarStock(_: Resultado, fd: FormData): Promise<Resultad
         cantidad: diferencia,
         // Se guarda en la base de datos: el motivo queda en castellano
         motivo: [etiqueta(MOTIVOS_AJUSTE, motivo), nota].filter(Boolean).join(" — "),
+        usuarioId: yo.id,
       });
       return diferencia;
     });

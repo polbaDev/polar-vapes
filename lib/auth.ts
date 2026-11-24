@@ -1,7 +1,9 @@
-// Autenticación sencilla con una sola contraseña (APP_PASSWORD).
-// La cookie de sesión es «emitida.version.firma»: caduca a los 30 días y deja de valer si cambias
-// la contraseña o AUTH_SECRET, o si se sube la versión de las sesiones («Cerrar sesión en todos los dispositivos»).
-// Aquí solo se miran la firma y la edad; la versión guardada la comparan el Proxy y lib/session.ts (necesitan la base de datos).
+// Sesiones de las cuentas (cada persona entra con su nombre y su contraseña; ver lib/claves.ts).
+// APP_PASSWORD solo sirve para crear la primera cuenta, cuando aún no hay ninguna.
+// La cookie de sesión es «emitida.usuario.version.versionUsuario.firma»: caduca a los 30 días y deja de valer
+// si cambias AUTH_SECRET, si se sube la versión de las sesiones («Cerrar sesión en todos los dispositivos»)
+// o la de esa cuenta (cambio de contraseña, cuenta desactivada).
+// Aquí solo se miran la firma y la edad; las versiones guardadas las comparan el Proxy y lib/session.ts (necesitan la base de datos).
 // Funciona igual en Node y en el runtime de Proxy: solo Web Crypto, sin node: ni base de datos.
 
 export const COOKIE = "vapers_sesion";
@@ -63,24 +65,27 @@ function edadValida(emitida: number, dias: number) {
   return edad >= -MARGEN_RELOJ && edad < dias * DIA;
 }
 
-function firmaSesion(emitida: string, version: string) {
-  return hmac(process.env.AUTH_SECRET!, `sesion:${emitida}:${version}:${process.env.APP_PASSWORD}`);
+function firmaSesion(emitida: string, usuario: string, version: string, versionUsuario: string) {
+  return hmac(process.env.AUTH_SECRET!, `sesion:${emitida}:${usuario}:${version}:${versionUsuario}`);
 }
 
-export async function crearTokenSesion(version: number) {
+export async function crearTokenSesion(usuarioId: number, version: number, versionUsuario: number) {
   const emitida = String(ahora());
-  return `${emitida}.${version}.${await firmaSesion(emitida, String(version))}`;
+  const partes = [emitida, String(usuarioId), String(version), String(versionUsuario)] as const;
+  return `${partes.join(".")}.${await firmaSesion(...partes)}`;
 }
+
+export type SesionLeida = { emitida: number; usuarioId: number; version: number; versionUsuario: number };
 
 // Datos de una cookie de sesión bien firmada y sin caducar; null si no vale
-export async function leerSesion(valor: string | undefined) {
+export async function leerSesion(valor: string | undefined): Promise<SesionLeida | null> {
   if (!authConfigurada() || !valor) return null;
-  const m = /^(\d{1,12})\.(\d{1,15})\.([0-9a-f]{64})$/.exec(valor);
+  const m = /^(\d{1,12})\.(\d{1,9})\.(\d{1,15})\.(\d{1,9})\.([0-9a-f]{64})$/.exec(valor);
   if (!m) return null;
-  const [, emitida, version, firma] = m;
+  const [, emitida, usuario, version, versionUsuario, firma] = m;
   if (!edadValida(Number(emitida), DIAS_SESION)) return null;
-  if (!(await igualSeguro(firma, await firmaSesion(emitida, version)))) return null;
-  return { emitida: Number(emitida), version: Number(version) };
+  if (!(await igualSeguro(firma, await firmaSesion(emitida, usuario, version, versionUsuario)))) return null;
+  return { emitida: Number(emitida), usuarioId: Number(usuario), version: Number(version), versionUsuario: Number(versionUsuario) };
 }
 
 function firmaDispositivo(emitida: string, version: string) {

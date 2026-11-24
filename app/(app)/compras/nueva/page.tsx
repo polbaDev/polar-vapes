@@ -3,6 +3,8 @@ import { FormCompra } from "@/components/form-compra";
 import { variantesLigeras } from "@/lib/ligeras";
 import { listarProveedores } from "@/lib/queries";
 import { hoyISO } from "@/lib/format";
+import { exigirSesion } from "@/lib/session";
+import { listarSocios } from "@/lib/usuarios";
 import { traductor } from "@/lib/i18n/servidor";
 
 export async function generateMetadata() {
@@ -22,7 +24,14 @@ function leerInicial(sp: { proveedor?: string; lineas?: string }) {
 }
 
 export default async function NuevaCompra({ searchParams }: { searchParams: Promise<{ proveedor?: string; lineas?: string }> }) {
-  const [variantes, proveedores, sp, t] = await Promise.all([variantesLigeras(), listarProveedores(), searchParams, traductor()]);
+  const [variantes, proveedores, sp, t, yo, socios] = await Promise.all([
+    variantesLigeras(),
+    listarProveedores(),
+    searchParams,
+    traductor(),
+    exigirSesion(),
+    listarSocios(),
+  ]);
   const inicial = leerInicial(sp);
   return (
     <>
@@ -40,6 +49,8 @@ export default async function NuevaCompra({ searchParams }: { searchParams: Prom
         proveedores={proveedores.map((p) => ({ id: p.id, nombre: p.nombre }))}
         hoy={hoyISO()}
         inicial={inicial}
+        socios={socios}
+        yo={yo.id}
       />
     </>
   );

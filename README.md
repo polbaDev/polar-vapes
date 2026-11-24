@@ -22,9 +22,11 @@ De **Pol** y **Ar**nau. App web para llevar las compras, las ventas y el stock d
   - En **Ajustes** (desde Reservas): tu WhatsApp, el nombre que ven los clientes, un texto (horario…), los tiempos, el máximo de unidades por reserva y abrir o cerrar el catálogo.
   - Al entrar se pregunta si es mayor de edad, no sale en buscadores y hay límites contra reservas falsas (como mucho 3 en curso por conexión).
   - **Dos direcciones, una sola app:** cualquier dirección que empiece por `catalogo.` (por ejemplo `catalogo.tudominio.es`) solo enseña el catálogo; cualquier otra (`gestion.tudominio.es`, `localhost`, la IP del PC) es la gestión con contraseña. En este PC: http://catalogo.localhost:3000 y http://gestion.localhost:3000.
-- **Entrada protegida:** 5 contraseñas fallidas seguidas desde la misma conexión bloquean la entrada 15 minutos. 30 fallos en total en 15 minutos bloquean la entrada desde dispositivos nuevos, pero no desde los que ya habían entrado antes (el móvil y el PC de la tienda siguen pudiendo entrar).
-- **Sesiones:** caducan a los 30 días. En **Ajustes → Sesiones**, «Cerrar sesión en todos los dispositivos» saca a todos (por ejemplo, si pierdes un móvil); cambiar `APP_PASSWORD` también lo hace.
-- **Inicio:** ventas y beneficio de hoy, de los últimos 7 días y de los últimos 30, lo que hay que reponer y los sabores más vendidos.
+- **Cuentas:** cada persona entra con su nombre y su contraseña, y lo que hace queda a su nombre: quién cobró cada venta, quién registró y anuló compras y ventas, quién cerró la caja. La primera vez que se entra no hay ninguna cuenta: se crea la primera con la contraseña de la app (`APP_PASSWORD`, la que enseña `arrancar.bat`) y desde **Socios → Cuentas y contraseñas** se crea la del otro socio. Ahí también se cambia la contraseña propia, se pone una nueva a quien la haya olvidado y se desactiva una cuenta (no puede entrar, pero sus ventas siguen a su nombre). Una cuenta puede ser de socio (entra en el reparto) o no (por ejemplo, una compartida de la tienda).
+- **Socios (cuentas entre socios al 50 %):** la app apunta dónde está el dinero de la tienda. El efectivo va al cajón, que es de los dos; el Bizum, al socio que lo recibe en su móvil (se elige al cobrar); la tarjeta, a la cuenta que digas en Cuentas y contraseñas. Al cerrar la caja o sacar dinero del cajón se dice quién se lo lleva, y en cada compra quién la paga. El saldo de cada socio es el dinero de la tienda que tiene: lo que cobra o se lleva menos lo que paga. La página **Socios** dice quién paga a quién para quedar a la par (la mitad de la diferencia) o a quién le toca pagar la próxima compra, muestra de dónde sale cada saldo y lo que vende cada uno (ventas, tickets, beneficio), y deja apuntar pagos entre socios, gastos pagados de su bolsillo, repartos de ganancias y el saldo de partida (lo que cada uno puso o tenía antes de usar la app). Lo apuntado ahí se anula, no se borra. Si alguien se equivoca de persona, se corrige en el detalle de la venta o de la compra.
+- **Entrada protegida:** 5 contraseñas fallidas seguidas desde la misma conexión bloquean la entrada 15 minutos. 30 fallos en total en 15 minutos bloquean la entrada desde dispositivos nuevos, pero no desde los que ya habían entrado antes (el móvil y el PC de la tienda siguen pudiendo entrar). Un nombre que no existe cuenta igual que una contraseña mal puesta.
+- **Sesiones:** caducan a los 30 días. En **Ajustes → Sesiones**, «Cerrar sesión en todos los dispositivos» saca a todos (por ejemplo, si pierdes un móvil). Cambiar la contraseña de una cuenta o desactivarla cierra las sesiones de esa cuenta.
+- **Inicio:** ventas y beneficio de hoy, de los últimos 7 días y de los últimos 30, quién paga a quién y lo que ha vendido hoy cada uno, lo que hay que reponer y los sabores más vendidos.
 - **Ficha de producto:** foto, características, stock total, valor del stock y ventas de 30 días, más una tarjeta por sabor con su foto, precio, stock y ventas. Desde ahí puedes poner un mismo precio a todos los sabores a la vez.
 - **Fotos:** se pueden subir desde el móvil o el PC, o importar pegando un enlace. Se guardan en la propia base de datos, así que funcionan igual en Docker y en Supabase.
 - **Aspecto, tema e idioma:** marca propia, PolAr Vapes: un sello burdeos, hueso y oro viejo con el monograma P&A, títulos en Cormorant Garamond y texto en Public Sans (guía completa en [BRAND.md](BRAND.md)), con la estructura visual de FinqCat (navegación en cápsula y accesos rápidos a la izquierda). En el menú del círculo de arriba a la derecha eliges el tema (claro, oscuro o el del sistema) y el idioma (castellano o catalán); en el catálogo para clientes, en el botón del globo. Cada navegador recuerda su elección.
@@ -37,7 +39,7 @@ Tecnología: **Next.js 16** + **PostgreSQL** + **Drizzle ORM** + **Tailwind CSS*
 
 Necesitas tener **Docker Desktop** instalado y abierto.
 
-Haz doble clic en **`arrancar.bat`**. Espera a que Docker esté listo, construye y arranca la app y abre **http://localhost:3000**. La primera vez crea el archivo `.env` con una contraseña nueva al azar y te la enseña: apúntala (queda guardada en `.env`, en `APP_PASSWORD`). También programa la copia de seguridad diaria (ver abajo). Si la app no llega a arrancar, te lo dice y deja los detalles en `app.log`. Para pararla, **`parar.bat`**.
+Haz doble clic en **`arrancar.bat`**. Espera a que Docker esté listo, construye y arranca la app y abre **http://localhost:3000**. La primera vez crea el archivo `.env` con una contraseña de la app nueva al azar y te la enseña (queda guardada en `.env`, en `APP_PASSWORD`): te la pedirá la app para crear la primera cuenta. También programa la copia de seguridad diaria (ver abajo). Si la app no llega a arrancar, te lo dice y deja los detalles en `app.log`. Para pararla, **`parar.bat`**.
 
 Si creas el `.env` a mano copiando `.env.example`, cambia `APP_PASSWORD` y `AUTH_SECRET`. Si se quedan vacíos, con los valores de ejemplo o son demasiado cortos (la contraseña necesita al menos 8 caracteres y `AUTH_SECRET`, 32), `arrancar.bat` los cambia por unos nuevos y te enseña la contraseña.
 
@@ -143,7 +145,7 @@ El archivo `.env` (con tu contraseña) **no se sube**: está en `.gitignore`.
    ```
 3. **Vercel:** *Add New → Project*, importa el repositorio de GitHub y añade estas variables de entorno:
    - `DATABASE_URL`: la cadena del **Transaction pooler** (6543)
-   - `APP_PASSWORD`: una contraseña larga (como mínimo 8 caracteres)
+   - `APP_PASSWORD`: una contraseña larga (como mínimo 8 caracteres); solo sirve para crear la primera cuenta
    - `AUTH_SECRET`: una cadena aleatoria. Genérala con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
    - `APP_TZ`: `Europe/Madrid`
 4. Pulsa **Deploy**. Cada `git push` a `main` vuelve a publicar la app.
@@ -175,6 +177,7 @@ app/
     inventario/          stock, movimientos y ajustes
     caja/                cierre de caja, entradas/salidas de dinero e historial
     catalogo/            productos, variantes, sabores, marcas y proveedores
+    socios/              cuentas entre socios, ventas por persona y cuentas y contraseñas
 components/              piezas de interfaz (TPV, formulario de compra…)
 lib/
   db/schema.ts           tablas (Drizzle)
@@ -182,7 +185,10 @@ lib/
   db/index.ts            conexión a Postgres
   queries.ts             consultas de lectura
   actions/               acciones del servidor (crear, editar, vender, comprar…)
-  auth.ts, session.ts    acceso con contraseña
+  auth.ts, session.ts    sesiones de las cuentas (cookie firmada)
+  claves.ts, usuarios.ts contraseñas (scrypt) y cuentas
+  socios.ts              saldo de cada socio, movimientos de dinero y ventas por persona
+  socios-calculo.ts      quién paga a quién para quedar a la par
   i18n/                  traducciones (ca/*.json) y traductor
   preferencias.ts        cookies de tema e idioma
 proxy.ts                 protege todas las páginas

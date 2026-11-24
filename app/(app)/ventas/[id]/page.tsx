@@ -3,7 +3,9 @@ import { Cabecera, Insignia } from "@/components/ui";
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
 import { FormDevolucion } from "@/components/form-devolucion";
 import { anularVenta } from "@/lib/actions/stock";
+import { cambiarRecibeVenta } from "@/lib/actions/socios";
 import { detalleVenta } from "@/lib/queries";
+import { listarSocios } from "@/lib/usuarios";
 import { euros, fechaHora } from "@/lib/format";
 import { METODOS_PAGO, etiqueta } from "@/lib/constants";
 import { traductor } from "@/lib/i18n/servidor";
@@ -11,8 +13,19 @@ import { traductor } from "@/lib/i18n/servidor";
 export default async function Venta({ params }: { params: Promise<{ id: string }> }) {
   const t = await traductor();
   const id = Number((await params).id);
-  const v = Number.isInteger(id) ? await detalleVenta(id) : null;
+  const [v, socios] = await Promise.all([Number.isInteger(id) ? detalleVenta(id) : null, listarSocios()]);
   if (!v) notFound();
+  // Dónde acabó el dinero de esta venta
+  const destino =
+    v.metodoPago === "efectivo"
+      ? t("Al cajón (de los dos)")
+      : v.metodoPago === "bizum"
+        ? v.recibe
+          ? t("Bizum a {nombre}", { nombre: v.recibe })
+          : t("Bizum, sin indicar a quién")
+        : v.recibe
+          ? t("Tarjeta, a la cuenta de {nombre}", { nombre: v.recibe })
+          : t("Tarjeta, a la cuenta de la tienda");
   const devuelto = v.devoluciones.reduce((s, d) => s + Number(d.importe), 0);
   // Coste de lo que se queda el cliente (lo defectuoso devuelto sigue contando como coste: es pérdida)
   const coste = v.lineas.reduce((s, l) => s + l.cantidad * Number(l.costeUnidad) - Number(l.costeDevuelto), 0);
@@ -26,9 +39,13 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
         titulo={t("Venta #{id}", { id: v.id })}
         subtitulo={
           <>
-            {fechaHora(v.fecha)} · {t(etiqueta(METODOS_PAGO, v.metodoPago))}{" "}
+            {fechaHora(v.fecha)} · {t(etiqueta(METODOS_PAGO, v.metodoPago))}
+            {v.vendedor && <> · {t("Cobró {nombre}", { nombre: v.vendedor })}</>}{" "}
             {v.anulada && (
-              <Insignia tono="rojo">{v.anuladaEn ? t("Anulada {fecha}", { fecha: fechaHora(v.anuladaEn) }) : t("Anulada")}</Insignia>
+              <Insignia tono="rojo">
+                {v.anuladaEn ? t("Anulada {fecha}", { fecha: fechaHora(v.anuladaEn) }) : t("Anulada")}
+                {v.anuladaPor ? ` · ${v.anuladaPor}` : ""}
+              </Insignia>
             )}
             {devuelto > 0 && <Insignia tono="ambar">{t("Con devoluciones")}</Insignia>}
           </>
@@ -99,7 +116,30 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
             <dt>{t("Mayor de edad comprobado")}</dt>
             <dd>{v.mayorEdadVerificado ? t("Sí") : t("No")}</dd>
           </div>
+          <div className="flex justify-between gap-3 text-zinc-500">
+            <dt>{t("Dinero")}</dt>
+            <dd className="text-right">{destino}</dd>
+          </div>
         </dl>
+        {!v.anulada && v.metodoPago !== "efectivo" && socios.length > 0 && (
+          <FormAccion accion={cambiarRecibeVenta} className="flex flex-wrap items-end gap-2 border-t border-zinc-200 px-4 py-3">
+            <input type="hidden" name="id" value={v.id} />
+            <div className="min-w-0 flex-1">
+              <label className="etiqueta" htmlFor="recibe">
+                {v.metodoPago === "bizum" ? t("¿A quién le llegó el Bizum?") : t("¿A qué cuenta fue la tarjeta?")}
+              </label>
+              <select id="recibe" name="recibe" defaultValue={v.recibeId ?? "comun"} className="campo">
+                {socios.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))}
+                <option value="comun">{t("Cuenta de la tienda (de los dos)")}</option>
+              </select>
+            </div>
+            <BotonEnviar className="btn-sec">{t("Cambiar")}</BotonEnviar>
+          </FormAccion>
+        )}
       </div>
 
       {v.devoluciones.length > 0 && (
@@ -116,6 +156,7 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
                       <div className="text-xs text-zinc-500">
                         {d.vuelveAlStock ? t("Volvió al stock") : t("Defectuoso, no vuelve al stock")}
                         {d.motivo ? ` · ${d.motivo}` : ""}
+                        {d.paga ? ` · ${t("Lo devolvió {nombre}", { nombre: d.paga })}` : ""}
                       </div>
                     </td>
                     <td className="whitespace-nowrap text-right">
@@ -145,6 +186,8 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
             devueltas: l.devueltas,
             precioUnidad: Number(l.precioUnidad),
           }))}
+          socios={socios}
+          pagaPorDefecto={v.recibeId}
         />
       )}
 

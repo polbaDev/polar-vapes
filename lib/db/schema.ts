@@ -34,6 +34,31 @@ export const imagenes = pgTable("imagenes", {
   creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------- Cuentas ----------
+
+// Cada persona entra con su nombre y su contraseña. Lo que hace queda a su nombre (ventas, compras, caja…).
+// socio: entra en el reparto al 50 % y puede tener dinero de la tienda (Bizum a su móvil, lo que se lleva
+// del cajón, compras que paga de su bolsillo). Una cuenta compartida de la tienda no sería socio.
+// No se borran: se desactivan, y sus ventas siguen a su nombre.
+export const usuarios = pgTable(
+  "usuarios",
+  {
+    id: serial("id").primaryKey(),
+    nombre: text("nombre").notNull(),
+    // scrypt$N$r$p$sal$huella (ver lib/claves.ts)
+    clave: text("clave").notNull(),
+    socio: boolean("socio").notNull().default(true),
+    activo: boolean("activo").notNull().default(true),
+    // Al subirla, sus sesiones abiertas dejan de valer (cambio de contraseña, cuenta desactivada)
+    sesionVersion: integer("sesion_version").notNull().default(0),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("usuarios_nombre_uq").on(sql`lower(${t.nombre})`)],
+);
+
+// Quién hizo algo o quién tiene el dinero (null en lo anterior a las cuentas)
+const usuarioRef = (columna: string) => integer(columna).references(() => usuarios.id, { onDelete: "restrict" });
+
 // ---------- Catálogo ----------
 
 export const marcas = pgTable("marcas", {
@@ -124,6 +149,10 @@ export const compras = pgTable("compras", {
   anulada: boolean("anulada").notNull().default(false),
   anuladaEn: timestamp("anulada_en", { withTimezone: true }),
   creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  // Quién la registró y quién la pagó (null = con dinero de la tienda: caja o cuenta común)
+  usuarioId: usuarioRef("usuario_id"),
+  pagaId: usuarioRef("paga_id"),
+  anuladaPorId: usuarioRef("anulada_por_id"),
 });
 
 export const lineasCompra = pgTable(
@@ -167,8 +196,13 @@ export const ventas = pgTable(
     anuladaEn: timestamp("anulada_en", { withTimezone: true }),
     // La crea el TPV en cada cobro: si se corta la conexión y se vuelve a cobrar, no se guarda dos veces
     clave: text("clave").unique(),
+    // Quién la cobró (cuenta para sus ventas)
+    usuarioId: usuarioRef("usuario_id"),
+    // Socio al que le llega el dinero (Bizum a su móvil, tarjeta a su cuenta). null = cajón o cuenta común
+    recibeId: usuarioRef("recibe_id"),
+    anuladaPorId: usuarioRef("anulada_por_id"),
   },
-  (t) => [index("ventas_fecha_idx").on(t.fecha)],
+  (t) => [index("ventas_fecha_idx").on(t.fecha), index("ventas_usuario_idx").on(t.usuarioId)],
 );
 
 export const lineasVenta = pgTable(
@@ -210,6 +244,9 @@ export const devoluciones = pgTable(
     importe: numeric("importe", { precision: 12, scale: 2 }).notNull(),
     vuelveAlStock: boolean("vuelve_al_stock").notNull(),
     motivo: text("motivo"),
+    usuarioId: usuarioRef("usuario_id"),
+    // Socio que devuelve el dinero (Bizum desde su móvil…). null = cajón o cuenta común
+    pagaId: usuarioRef("paga_id"),
   },
   (t) => [
     index("devoluciones_venta_idx").on(t.ventaId),
@@ -271,6 +308,9 @@ export const cierresCaja = pgTable(
     ventasBizum: numeric("ventas_bizum", { precision: 12, scale: 2 }).notNull(),
     tickets: integer("tickets").notNull(),
     notas: text("notas"),
+    usuarioId: usuarioRef("usuario_id"),
+    // Socio que se lleva el efectivo (contado - fondo_siguiente). null = va a la cuenta de la tienda
+    recibeId: usuarioRef("recibe_id"),
   },
   (t) => [
     index("cierres_caja_hasta_idx").on(t.hasta),
@@ -288,6 +328,9 @@ export const movimientosCaja = pgTable(
     tipo: text("tipo").notNull(),
     importe: numeric("importe", { precision: 10, scale: 2 }).notNull(),
     motivo: text("motivo").notNull(),
+    usuarioId: usuarioRef("usuario_id"),
+    // Socio que se lleva el dinero (salida) o lo pone de su bolsillo (entrada). null = es de la tienda
+    socioId: usuarioRef("socio_id"),
   },
   (t) => [
     index("movimientos_caja_fecha_idx").on(t.fecha),
@@ -380,6 +423,39 @@ export const movimientosStock = pgTable(
     compraId: integer("compra_id").references(() => compras.id, { onDelete: "set null" }),
     ventaId: integer("venta_id").references(() => ventas.id, { onDelete: "set null" }),
     fecha: timestamp("fecha", { withTimezone: true }).notNull().defaultNow(),
+    usuarioId: usuarioRef("usuario_id"),
   },
   (t) => [index("movimientos_variante_idx").on(t.varianteId)],
+);
+
+// ---------- Dinero entre socios ----------
+
+// Lo que mueve dinero entre los socios sin ser una venta, una compra ni la caja.
+// de_id: socio cuyo saldo baja; para_id: socio cuyo saldo sube (el saldo es el dinero de la tienda que tiene).
+// tipo: pago    — un socio le pasa dinero al otro (de → para)
+//       gasto   — un socio paga de su bolsillo algo de la tienda que no es stock (de)
+//       reparto — un socio se queda dinero de la tienda como ganancia (de); se apunta lo mismo a cada uno
+//       ajuste  — saldo de partida: puso dinero suyo (de) o tiene dinero de la tienda (para)
+// No se borran: se anulan y siguen a la vista.
+export const movimientosSocios = pgTable(
+  "movimientos_socios",
+  {
+    id: serial("id").primaryKey(),
+    fecha: timestamp("fecha", { withTimezone: true }).notNull().defaultNow(),
+    tipo: text("tipo").notNull(),
+    deId: usuarioRef("de_id"),
+    paraId: usuarioRef("para_id"),
+    importe: numeric("importe", { precision: 12, scale: 2 }).notNull(),
+    motivo: text("motivo"),
+    usuarioId: usuarioRef("usuario_id"),
+    anulado: boolean("anulado").notNull().default(false),
+    anuladoEn: timestamp("anulado_en", { withTimezone: true }),
+    anuladoPorId: usuarioRef("anulado_por_id"),
+  },
+  (t) => [
+    index("movimientos_socios_fecha_idx").on(t.fecha),
+    check("movimientos_socios_tipo_ck", sql`${t.tipo} in ('pago', 'gasto', 'reparto', 'ajuste')`),
+    check("movimientos_socios_importe_ck", sql`${t.importe} > 0`),
+    check("movimientos_socios_partes_ck", sql`(${t.deId} is not null or ${t.paraId} is not null) and ${t.deId} is distinct from ${t.paraId}`),
+  ],
 );

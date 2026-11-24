@@ -6,6 +6,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { cierresCaja, movimientosCaja } from "@/lib/db/schema";
 import { exigirSesion } from "@/lib/session";
+import { esSocioActivo } from "@/lib/socios";
 import { cuentasCaja, efectivoEsperado, periodoAbierto } from "@/lib/caja";
 import { redondear } from "@/lib/format";
 import { traductor } from "@/lib/i18n/servidor";
@@ -29,8 +30,17 @@ function importe(fd: FormData, campo: string, mensajes: { falta?: string; invali
 
 // ---------- Entradas y salidas de dinero ----------
 
+// Socio elegido en un formulario de caja: «comun» o vacío = nadie (el dinero es de la tienda)
+async function socioElegido(fd: FormData, campo: string, t: (s: string) => string) {
+  const v = texto(fd, campo);
+  if (v === "" || v === "comun") return null;
+  const id = Number(v);
+  if (!Number.isInteger(id) || !(await esSocioActivo(id))) throw new Error(t("Elige un socio de la lista."));
+  return id;
+}
+
 export async function crearMovimientoCaja(_: Resultado, fd: FormData): Promise<Resultado> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   try {
     const tipo = texto(fd, "tipo");
@@ -39,8 +49,12 @@ export async function crearMovimientoCaja(_: Resultado, fd: FormData): Promise<R
     if (cantidad <= 0) throw new Error(t("El importe tiene que ser mayor que 0."));
     const motivo = texto(fd, "motivo");
     if (!motivo) throw new Error(t("Escribe el motivo (ej. «Pago al repartidor», «Al banco»)."));
+    // Si se lo lleva un socio (o lo pone de su bolsillo), cuenta en las cuentas entre socios
+    const socioId = await socioElegido(fd, "socio", t);
     // clock_timestamp: la hora real de la base de datos, la misma que usan las ventas y los cierres
-    await db.insert(movimientosCaja).values({ tipo, importe: cantidad.toFixed(2), motivo, fecha: sql`clock_timestamp()` });
+    await db
+      .insert(movimientosCaja)
+      .values({ tipo, importe: cantidad.toFixed(2), motivo, fecha: sql`clock_timestamp()`, usuarioId: yo.id, socioId });
   } catch (e) {
     return { error: mensajeError(e, t) };
   }
@@ -74,10 +88,12 @@ export async function borrarMovimientoCaja(_: Resultado, fd: FormData): Promise<
 // ---------- Cierre ----------
 
 export async function cerrarCaja(_: Resultado, fd: FormData): Promise<Resultado> {
-  await exigirSesion();
+  const yo = await exigirSesion();
   const t = await traductor();
   let id: number;
   try {
+    // Socio que se lleva el efectivo que no se queda en caja (nadie: va a la cuenta de la tienda)
+    const recibeId = await socioElegido(fd, "recibe", t);
     const ultimoVisto = entero(fd, "ultimo") ?? 0;
     const contado = importe(fd, "contado", {
       falta: t("Escribe el efectivo contado."),
@@ -125,6 +141,8 @@ export async function cerrarCaja(_: Resultado, fd: FormData): Promise<Resultado>
           ventasBizum: c.ventasBizum.toFixed(2),
           tickets: c.tickets,
           notas,
+          usuarioId: yo.id,
+          recibeId: contado > fondoSiguiente ? recibeId : null,
         })
         .returning({ id: cierresCaja.id });
       return fila.id;

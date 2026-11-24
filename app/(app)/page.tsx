@@ -4,12 +4,14 @@ import { Foto } from "@/components/foto";
 import { listarVariantes, resumenPeriodo, topSabores } from "@/lib/queries";
 import { estadoCaja } from "@/lib/caja";
 import { contarPendientes } from "@/lib/reservas";
-import { euros, fecha } from "@/lib/format";
+import { euros, fecha, hoyISO } from "@/lib/format";
+import { saldosSocios, ventasPorPersona } from "@/lib/socios";
+import { pagosParaIgualar } from "@/lib/socios-calculo";
 import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Inicio() {
   const t = await traductor();
-  const [hoy, semana, mes, top, variantes, caja, reservasPendientes] = await Promise.all([
+  const [hoy, semana, mes, top, variantes, caja, reservasPendientes, saldos, ventasHoy] = await Promise.all([
     resumenPeriodo(1),
     resumenPeriodo(7),
     resumenPeriodo(30),
@@ -17,7 +19,11 @@ export default async function Inicio() {
     listarVariantes(),
     estadoCaja(),
     contarPendientes(),
+    saldosSocios(),
+    ventasPorPersona(hoyISO(), hoyISO()),
   ]);
+  const delReparto = saldos.filter((s) => s.socio);
+  const pagos = pagosParaIgualar(delReparto);
   const bajos = variantes
     .filter((v) => v.stock <= v.stockMinimo && (v.stockMinimo > 0 || v.stock <= 0))
     .sort((a, b) => a.stock - b.stock);
@@ -123,6 +129,42 @@ export default async function Inicio() {
           detalle={t("Beneficio {importe}", { importe: euros(mes.beneficio) })}
         />
       </div>
+
+      <section className="tarjeta mt-6 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+          <h2 className="font-semibold">{t("Socios")}</h2>
+          <Link href="/socios" className="text-sm enlace">
+            {t("Ver cuentas")}
+          </Link>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 text-sm">
+          {delReparto.length < 2 ? (
+            <span>
+              {t("Para llevar las cuentas entre los dos, crea la cuenta de tu socio en")}{" "}
+              <Link href="/socios/cuentas" className="enlace">
+                {t("Cuentas y contraseñas")}
+              </Link>
+              .
+            </span>
+          ) : pagos.length === 0 ? (
+            <span className="font-medium text-emerald-700">{t("Estáis a la par ✓")}</span>
+          ) : (
+            <span>
+              {pagos.map((p, i) => (
+                <span key={i} className="block">
+                  {t("Para quedar a la par:")} <strong>{p.de}</strong> {t("paga")} <strong className="tabular-nums">{euros(p.importe)}</strong> {t("a")}{" "}
+                  <strong>{p.para}</strong>
+                </span>
+              ))}
+            </span>
+          )}
+          <span className="text-zinc-500">
+            {ventasHoy.length === 0
+              ? t("Hoy aún no hay ventas.")
+              : `${t("Hoy:")} ${ventasHoy.map((v) => `${v.nombre ?? t("Sin asignar")} ${euros(v.vendido)}`).join(" · ")}`}
+          </span>
+        </div>
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="tarjeta overflow-hidden">

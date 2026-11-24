@@ -112,15 +112,27 @@ export function efectivoEsperado(fondo: number, c: CuentasCaja) {
   return redondear(fondo + c.ventasEfectivo - c.devolucionesEfectivo + c.entradas - c.salidas);
 }
 
-export type MovimientoCaja = { id: number; fecha: Date; tipo: "entrada" | "salida"; importe: string; motivo: string };
+export type MovimientoCaja = {
+  id: number;
+  fecha: Date;
+  tipo: "entrada" | "salida";
+  importe: string;
+  motivo: string;
+  // Socio que se lo llevó o lo puso (null: dinero de la tienda) y quién lo apuntó
+  socio: string | null;
+  usuario: string | null;
+};
 
 export async function movimientosCaja(desde: Date, hasta: Date | null) {
   return filas<MovimientoCaja>(
     db,
     sql`
-      select id, fecha, tipo, importe, motivo from movimientos_caja
-      where fecha > ${instante(desde)} and fecha <= ${instante(hasta)}
-      order by fecha, id
+      select m.id, m.fecha, m.tipo, m.importe, m.motivo, s.nombre as socio, u.nombre as usuario
+      from movimientos_caja m
+      left join usuarios s on s.id = m.socio_id
+      left join usuarios u on u.id = m.usuario_id
+      where m.fecha > ${instante(desde)} and m.fecha <= ${instante(hasta)}
+      order by m.fecha, m.id
     `,
   );
 }
@@ -161,21 +173,25 @@ export type CierreFila = {
   ventasBizum: string;
   tickets: number;
   notas: string | null;
+  // Quién cerró y quién se llevó el efectivo (null: nadie o antes de las cuentas)
+  usuario: string | null;
+  recibe: string | null;
 };
 
 const COLUMNAS_CIERRE = sql`
-  id, desde, hasta, fondo_inicial as "fondoInicial", ventas_efectivo as "ventasEfectivo",
-  devoluciones_efectivo as "devolucionesEfectivo", entradas, salidas, esperado, contado, descuadre,
-  fondo_siguiente as "fondoSiguiente", ventas_tarjeta as "ventasTarjeta", ventas_bizum as "ventasBizum",
-  tickets, notas
+  c.id, c.desde, c.hasta, c.fondo_inicial as "fondoInicial", c.ventas_efectivo as "ventasEfectivo",
+  c.devoluciones_efectivo as "devolucionesEfectivo", c.entradas, c.salidas, c.esperado, c.contado, c.descuadre,
+  c.fondo_siguiente as "fondoSiguiente", c.ventas_tarjeta as "ventasTarjeta", c.ventas_bizum as "ventasBizum",
+  c.tickets, c.notas, u.nombre as usuario, r.nombre as recibe
 `;
+const DESDE_CIERRES = sql`cierres_caja c left join usuarios u on u.id = c.usuario_id left join usuarios r on r.id = c.recibe_id`;
 
 export async function listarCierres(limite = 60) {
-  return filas<CierreFila>(db, sql`select ${COLUMNAS_CIERRE} from cierres_caja order by hasta desc, id desc limit ${limite}`);
+  return filas<CierreFila>(db, sql`select ${COLUMNAS_CIERRE} from ${DESDE_CIERRES} order by c.hasta desc, c.id desc limit ${limite}`);
 }
 
 export async function detalleCierre(id: number) {
-  const [c] = await filas<CierreFila>(db, sql`select ${COLUMNAS_CIERRE} from cierres_caja where id = ${id}`);
+  const [c] = await filas<CierreFila>(db, sql`select ${COLUMNAS_CIERRE} from ${DESDE_CIERRES} where c.id = ${id}`);
   if (!c) return null;
   const movimientos = await movimientosCaja(new Date(c.desde), new Date(c.hasta));
   return { ...c, movimientos };

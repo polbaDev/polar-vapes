@@ -162,20 +162,29 @@ export type VentaFila = {
   coste: string;
   unidades: number;
   anulada: boolean;
+  // Quién la cobró (null: antes de las cuentas) y a quién le llegó el dinero (null: cajón o cuenta común)
+  vendedorId: number | null;
+  vendedor: string | null;
+  recibe: string | null;
 };
 
-export async function listarVentas(desde: string, hasta: string, incluirAnuladas = true) {
+// usuario: solo las de esa persona (0 = las de antes de las cuentas, sin nadie)
+export async function listarVentas(desde: string, hasta: string, incluirAnuladas = true, usuario?: number) {
   return filas<VentaFila>(sql`
     select ve.id, ve.fecha, ve.metodo_pago as "metodoPago", ve.subtotal, ve.descuento, ve.total, ve.anulada,
+           ve.usuario_id as "vendedorId", u.nombre as vendedor, r.nombre as recibe,
            coalesce(sum(dl.importe), 0) as devuelto,
            coalesce(sum(l.cantidad * l.coste_unidad), 0) - coalesce(sum(dl.coste), 0) as coste,
            coalesce(sum(l.cantidad - coalesce(dl.cantidad, 0)), 0)::int as unidades
     from ventas ve
+    left join usuarios u on u.id = ve.usuario_id
+    left join usuarios r on r.id = ve.recibe_id
     left join lineas_venta l on l.venta_id = ve.id
     left join ${DEVUELTO_POR_LINEA} dl on dl.linea_venta_id = l.id
     where (ve.fecha at time zone ${TZ})::date between ${desde}::date and ${hasta}::date
       ${incluirAnuladas ? sql`` : sql`and not ve.anulada`}
-    group by ve.id
+      ${usuario === undefined ? sql`` : usuario === 0 ? sql`and ve.usuario_id is null` : sql`and ve.usuario_id = ${usuario}`}
+    group by ve.id, u.nombre, r.nombre
     order by ve.fecha desc
   `);
 }
@@ -192,10 +201,19 @@ export async function detalleVenta(id: number) {
     notas: string | null;
     anulada: boolean;
     anuladaEn: Date | null;
+    vendedor: string | null;
+    recibeId: number | null;
+    recibe: string | null;
+    anuladaPor: string | null;
   }>(sql`
-    select id, fecha, metodo_pago as "metodoPago", subtotal, descuento, total,
-           mayor_edad_verificado as "mayorEdadVerificado", notas, anulada, anulada_en as "anuladaEn"
-    from ventas where id = ${id}
+    select ve.id, ve.fecha, ve.metodo_pago as "metodoPago", ve.subtotal, ve.descuento, ve.total,
+           ve.mayor_edad_verificado as "mayorEdadVerificado", ve.notas, ve.anulada, ve.anulada_en as "anuladaEn",
+           u.nombre as vendedor, ve.recibe_id as "recibeId", r.nombre as recibe, a.nombre as "anuladaPor"
+    from ventas ve
+    left join usuarios u on u.id = ve.usuario_id
+    left join usuarios r on r.id = ve.recibe_id
+    left join usuarios a on a.id = ve.anulada_por_id
+    where ve.id = ${id}
   `);
   if (!venta) return null;
   const lineas = await filas<{
@@ -233,15 +251,20 @@ export async function detalleVenta(id: number) {
     vuelveAlStock: boolean;
     motivo: string | null;
     detalle: string;
+    usuario: string | null;
+    paga: string | null;
   }>(sql`
     select d.id, d.fecha, d.metodo_pago as "metodoPago", d.importe, d.vuelve_al_stock as "vuelveAlStock", d.motivo,
-           string_agg(s.nombre || ' × ' || ld.cantidad, ', ' order by ld.id) as detalle
+           string_agg(s.nombre || ' × ' || ld.cantidad, ', ' order by ld.id) as detalle,
+           u.nombre as usuario, p.nombre as paga
     from devoluciones d
     join lineas_devolucion ld on ld.devolucion_id = d.id
     join variantes v on v.id = ld.variante_id
     join sabores s on s.id = v.sabor_id
+    left join usuarios u on u.id = d.usuario_id
+    left join usuarios p on p.id = d.paga_id
     where d.venta_id = ${id}
-    group by d.id
+    group by d.id, u.nombre, p.nombre
     order by d.fecha, d.id
   `);
   return { ...venta, lineas, devoluciones };
@@ -258,13 +281,16 @@ export async function listarCompras(limite = 200) {
     total: string;
     unidades: number;
     anulada: boolean;
+    // Socio que la pagó (null: dinero de la tienda o antes de las cuentas)
+    paga: string | null;
   }>(sql`
     select c.id, to_char(c.fecha, 'YYYY-MM-DD') as fecha, pr.nombre as proveedor, c.num_factura as "numFactura",
-           c.total, c.anulada, coalesce(sum(l.cantidad), 0)::int as unidades
+           c.total, c.anulada, coalesce(sum(l.cantidad), 0)::int as unidades, p.nombre as paga
     from compras c
     left join proveedores pr on pr.id = c.proveedor_id
+    left join usuarios p on p.id = c.paga_id
     left join lineas_compra l on l.compra_id = c.id
-    group by c.id, pr.nombre
+    group by c.id, pr.nombre, p.nombre
     order by c.fecha desc, c.id desc
     limit ${limite}
   `);
@@ -281,10 +307,19 @@ export async function detalleCompra(id: number) {
     notas: string | null;
     anulada: boolean;
     anuladaEn: Date | null;
+    usuario: string | null;
+    pagaId: number | null;
+    paga: string | null;
+    anuladaPor: string | null;
   }>(sql`
     select c.id, to_char(c.fecha, 'YYYY-MM-DD') as fecha, pr.nombre as proveedor, c.num_factura as "numFactura",
-           c.gastos_envio as "gastosEnvio", c.total, c.notas, c.anulada, c.anulada_en as "anuladaEn"
-    from compras c left join proveedores pr on pr.id = c.proveedor_id
+           c.gastos_envio as "gastosEnvio", c.total, c.notas, c.anulada, c.anulada_en as "anuladaEn",
+           u.nombre as usuario, c.paga_id as "pagaId", p.nombre as paga, a.nombre as "anuladaPor"
+    from compras c
+    left join proveedores pr on pr.id = c.proveedor_id
+    left join usuarios u on u.id = c.usuario_id
+    left join usuarios p on p.id = c.paga_id
+    left join usuarios a on a.id = c.anulada_por_id
     where c.id = ${id}
   `);
   if (!compra) return null;

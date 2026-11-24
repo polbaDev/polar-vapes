@@ -30,6 +30,8 @@ export function FormDevolucion({
   subtotal,
   yaDevuelto,
   lineas,
+  socios = [],
+  pagaPorDefecto = null,
 }: {
   ventaId: number;
   metodoPago: string;
@@ -37,10 +39,16 @@ export function FormDevolucion({
   subtotal: number;
   yaDevuelto: number;
   lineas: LineaDevolvible[];
+  // Socios que pueden devolver un Bizum desde su móvil; por defecto, al que le llegó el de la venta
+  socios?: { id: number; nombre: string }[];
+  pagaPorDefecto?: number | null;
 }) {
   const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
+  const [paga, setPaga] = useState<number | null>(
+    socios.find((s) => s.id === pagaPorDefecto)?.id ?? socios[0]?.id ?? null,
+  );
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
   const [metodo, setMetodo] = useState(metodoPago);
   const [destino, setDestino] = useState<"stock" | "defectuoso" | "">("");
@@ -73,6 +81,7 @@ export function FormDevolucion({
         metodoPago: metodo,
         vuelveAlStock: destino === "stock",
         motivo,
+        pagaId: metodo === "bizum" ? paga : null,
       });
       if (r?.error) return setError(r.error);
       setHecho(
@@ -184,6 +193,18 @@ export function FormDevolucion({
           </div>
           {metodo !== metodoPago && (
             <p className="mt-1 text-xs text-amber-700">{t("La venta se cobró en {metodo}.", { metodo: nombrePago(metodoPago) })}</p>
+          )}
+          {metodo === "bizum" && socios.length > 1 && (
+            <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+              <span className="text-zinc-500">{t("Lo devuelve")}</span>
+              <div className="segmento" role="radiogroup" aria-label={t("Quién devuelve el Bizum")}>
+                {socios.map((s) => (
+                  <button key={s.id} type="button" role="radio" aria-checked={paga === s.id} onClick={() => setPaga(s.id)} className="py-1">
+                    {s.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
