@@ -1,16 +1,17 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ajustes } from "@/lib/db/schema";
 import { TZ } from "@/lib/constants";
 import { DEVUELTO_POR_LINEA } from "@/lib/queries";
 import type { SaldoSocio } from "@/lib/socios-calculo";
 
-// Dinero de la tienda en manos de cada socio y ventas de cada persona.
-// El saldo de un socio sube con lo que cobra (Bizum a su móvil, tarjeta a su cuenta), con lo que se lleva
-// del cajón y con lo que le pasa otro socio; baja con lo que paga (compras, gastos, devoluciones), con lo
-// que pone en el cajón, con lo que le pasa a otro y con lo que se queda como ganancia (reparto).
-// El efectivo del cajón y la cuenta común son de todos: no cuentan hasta que alguien se lo lleva.
+// Dinero de la tienda en manos de cada socio y ventas de cada persona. No hay caja ni cuenta común: el
+// dinero de la tienda (el bote) siempre lo tiene alguno de los socios.
+//  - Lo que tiene del bote sube con lo que cobra (efectivo que se queda, Bizum a su móvil, tarjeta a su
+//    cuenta), con las aportaciones que guarda y con lo que le pasa el otro; baja con lo que paga (compras,
+//    gastos, devoluciones), con lo que le pasa al otro y con lo que se queda como ganancia (reparto).
+//  - Lo que ha puesto de su bolsillo son sus aportaciones al bote.
+//  - Su saldo (lo que tiene menos lo que ha puesto) es lo que sirve para saber quién paga a quién.
 
 type Ejecutor = { execute: (q: SQL) => Promise<unknown> };
 
@@ -20,27 +21,45 @@ async function filas<T>(q: SQL, ej: Ejecutor = db): Promise<T[]> {
 
 // Una fila por cada cosa que cambia el saldo de un socio, con el importe con signo
 const MOVIMIENTOS_SALDO = sql`(
-  select v.recibe_id as socio_id, case when v.metodo_pago = 'tarjeta' then 'tarjeta' else 'bizum' end as cat, v.total as importe
+  select v.recibe_id as socio_id, v.metodo_pago as cat, v.total as importe
     from ventas v where not v.anulada and v.recibe_id is not null
   union all
   select d.paga_id, 'devoluciones', -d.importe from devoluciones d where d.paga_id is not null
   union all
   select c.paga_id, 'compras', -c.total from compras c where not c.anulada and c.paga_id is not null
-  union all
-  select m.socio_id, 'cajon', case when m.tipo = 'salida' then m.importe else -m.importe end
-    from movimientos_caja m where m.socio_id is not null
-  union all
-  select c.recibe_id, 'cajon', c.contado - c.fondo_siguiente from cierres_caja c where c.recibe_id is not null
+
   union all
   select s.para_id, s.tipo, s.importe from movimientos_socios s where not s.anulado and s.para_id is not null
   union all
-  select s.de_id, s.tipo, -s.importe from movimientos_socios s where not s.anulado and s.de_id is not null
+  select s.de_id, case when s.tipo = 'aportacion' then 'aportado' else s.tipo end, -s.importe
+    from movimientos_socios s where not s.anulado and s.de_id is not null
 )`;
 
-export const CATEGORIAS_SALDO = ["bizum", "tarjeta", "cajon", "compras", "devoluciones", "gasto", "pago", "reparto", "ajuste"] as const;
-export type CategoriaSaldo = (typeof CATEGORIAS_SALDO)[number];
+// Lo que suma o resta de lo que tiene cada uno del bote (las aportaciones que pone van aparte: «aportado»)
+export const CATEGORIAS_SALDO = [
+  "efectivo",
+  "bizum",
+  "tarjeta",
+  "aportacion",
+  "compras",
+  "devoluciones",
+  "gasto",
+  "pago",
+  "reparto",
+  "ajuste",
+] as const;
+export type CategoriaSaldo = (typeof CATEGORIAS_SALDO)[number] | "aportado";
 
-export type SaldoDetallado = SaldoSocio & { socio: boolean; activo: boolean; desglose: Partial<Record<CategoriaSaldo, number>> };
+// saldo = tiene − aportado
+export type SaldoDetallado = SaldoSocio & {
+  socio: boolean;
+  activo: boolean;
+  // Dinero del bote que tiene (negativo: ha adelantado dinero suyo que aún no ha recuperado)
+  tiene: number;
+  // Lo que ha puesto de su bolsillo en el bote (aportaciones)
+  aportado: number;
+  desglose: Partial<Record<CategoriaSaldo, number>>;
+};
 
 // Saldo de los socios activos y de cualquier cuenta que aún tenga dinero de la tienda
 export async function saldosSocios(): Promise<SaldoDetallado[]> {
@@ -53,15 +72,17 @@ export async function saldosSocios(): Promise<SaldoDetallado[]> {
   `);
   const porId = new Map<number, SaldoDetallado>();
   for (const r of rows) {
-    const s = porId.get(r.id) ?? { id: r.id, nombre: r.nombre, socio: r.socio, activo: r.activo, saldo: 0, desglose: {} };
+    const s = porId.get(r.id) ?? { id: r.id, nombre: r.nombre, socio: r.socio, activo: r.activo, saldo: 0, tiene: 0, aportado: 0, desglose: {} };
     if (r.cat) {
       const n = Number(r.importe);
       s.desglose[r.cat] = n;
       s.saldo = Math.round((s.saldo + n) * 100) / 100;
+      if (r.cat === "aportado") s.aportado = Math.round((s.aportado - n) * 100) / 100;
+      else s.tiene = Math.round((s.tiene + n) * 100) / 100;
     }
     porId.set(r.id, s);
   }
-  return [...porId.values()].filter((s) => (s.socio && s.activo) || Math.abs(s.saldo) >= 0.005);
+  return [...porId.values()].filter((s) => (s.socio && s.activo) || Math.abs(s.saldo) >= 0.005 || Math.abs(s.tiene) >= 0.005);
 }
 
 export type MovimientoDinero = {
@@ -93,17 +114,11 @@ export async function movimientosDinero(limite = 60) {
       select ((c.fecha + time '12:00') at time zone ${TZ}), 'compra', c.id, pr.nombre, c.paga_id, null, -c.total, false
         from compras c left join proveedores pr on pr.id = c.proveedor_id
         where not c.anulada and c.paga_id is not null
-      union all
-      select m.fecha, 'caja_' || m.tipo, m.id, m.motivo, m.socio_id, null,
-             case when m.tipo = 'salida' then m.importe else -m.importe end, false
-        from movimientos_caja m where m.socio_id is not null
-      union all
-      select c.hasta, 'cierre', c.id, null, c.recibe_id, null, c.contado - c.fondo_siguiente, false
-        from cierres_caja c where c.recibe_id is not null and c.contado > c.fondo_siguiente
+
       union all
       select s.fecha, s.tipo, s.id, s.motivo, coalesce(s.de_id, s.para_id),
-             case when s.de_id is not null then s.para_id end,
-             case when s.de_id is not null then -s.importe else s.importe end, s.anulado
+             case when s.de_id is not null and s.para_id is distinct from s.de_id then s.para_id end,
+             case when s.de_id is not null and s.tipo <> 'aportacion' then -s.importe else s.importe end, s.anulado
         from movimientos_socios s
     ) x
     join usuarios u on u.id = x.socio_id
@@ -142,27 +157,6 @@ export async function ventasPorPersona(desde: string, hasta: string) {
     group by vs.usuario_id, u.nombre
     order by vendido desc
   `);
-}
-
-// ---------- A quién le llega el dinero de la tarjeta ----------
-
-const CLAVE_TARJETA = "tarjeta_recibe";
-
-// Socio al que le llega lo cobrado con tarjeta (null: a la cuenta de la tienda, que es de todos)
-export async function tarjetaRecibe(ej: Ejecutor = db): Promise<number | null> {
-  const [r] = await filas<{ id: number | null }>(
-    sql`
-      select u.id from ajustes a join usuarios u on a.valor ~ '^[0-9]{1,9}$' and u.id = a.valor::int and u.socio and u.activo
-      where a.clave = ${CLAVE_TARJETA}
-    `,
-    ej,
-  );
-  return r?.id ?? null;
-}
-
-export async function guardarTarjetaRecibe(id: number | null) {
-  const valor = id ? String(id) : "";
-  await db.insert(ajustes).values({ clave: CLAVE_TARJETA, valor }).onConflictDoUpdate({ target: ajustes.clave, set: { valor } });
 }
 
 // ¿Es un socio activo? (los únicos que pueden tener dinero de la tienda)

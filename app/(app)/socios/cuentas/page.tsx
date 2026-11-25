@@ -1,9 +1,8 @@
 import { Cabecera, Insignia } from "@/components/ui";
 import { FormAccion, BotonEnviar } from "@/components/form-accion";
-import { activarCuenta, cambiarClaveDe, cambiarMiClave, crearCuenta, editarCuenta, guardarDestinoTarjeta } from "@/lib/actions/cuentas";
+import { activarCuenta, cambiarClaveDe, cambiarMiClave, crearCuenta, editarCuenta } from "@/lib/actions/cuentas";
 import { MIN_CLAVE } from "@/lib/claves";
 import { exigirSesion } from "@/lib/session";
-import { tarjetaRecibe } from "@/lib/socios";
 import { listarUsuarios } from "@/lib/usuarios";
 import { traductor } from "@/lib/i18n/servidor";
 
@@ -14,8 +13,7 @@ export async function generateMetadata() {
 
 export default async function Cuentas({ searchParams }: { searchParams: Promise<{ primera?: string }> }) {
   const t = await traductor();
-  const [{ primera }, yo, cuentas, tarjeta] = await Promise.all([searchParams, exigirSesion(), listarUsuarios(), tarjetaRecibe()]);
-  const socios = cuentas.filter((c) => c.socio && c.activo);
+  const [{ primera }, yo, cuentas] = await Promise.all([searchParams, exigirSesion(), listarUsuarios()]);
 
   return (
     <>
@@ -163,24 +161,6 @@ export default async function Cuentas({ searchParams }: { searchParams: Promise<
             </p>
             <BotonEnviar>{t("Cambiar mi contraseña")}</BotonEnviar>
           </FormAccion>
-
-          {socios.length > 0 && (
-            <FormAccion accion={guardarDestinoTarjeta} className="tarjeta space-y-3 p-4">
-              <h2 className="font-semibold">{t("Dinero de la tarjeta")}</h2>
-              <p className="text-sm text-zinc-500">
-                {t("¿En qué cuenta del banco ingresa el datáfono? Si es la de un socio, lo cobrado con tarjeta cuenta como dinero de la tienda que tiene ese socio.")}
-              </p>
-              <select name="tarjeta" defaultValue={tarjeta ?? "comun"} className="campo" aria-label={t("Dinero de la tarjeta")}>
-                <option value="comun">{t("En la cuenta de la tienda (de los dos)")}</option>
-                {socios.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {t("En la cuenta de {nombre}", { nombre: s.nombre })}
-                  </option>
-                ))}
-              </select>
-              <BotonEnviar className="btn-sec">{t("Guardar")}</BotonEnviar>
-            </FormAccion>
-          )}
         </div>
       </div>
     </>

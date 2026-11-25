@@ -7,8 +7,8 @@ import type { T } from "@/lib/i18n";
 import { Foto } from "./foto";
 import { useT } from "./preferencias";
 
-const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-const num = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
+const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
+const num = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1, useGrouping: "always" });
 
 function cantidad(s: string | undefined) {
   const n = Number(s);

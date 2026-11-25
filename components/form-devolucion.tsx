@@ -7,7 +7,7 @@ import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { tx } from "@/lib/i18n";
 import { useT } from "./preferencias";
 
-const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
 const PAGOS = [
   { value: "efectivo", label: tx("Efectivo") },
   { value: "tarjeta", label: tx("Tarjeta") },
@@ -39,7 +39,7 @@ export function FormDevolucion({
   subtotal: number;
   yaDevuelto: number;
   lineas: LineaDevolvible[];
-  // Socios que pueden devolver un Bizum desde su móvil; por defecto, al que le llegó el de la venta
+  // Socios que pueden devolver el dinero (en mano, por Bizum…); por defecto, el que se quedó el de la venta
   socios?: { id: number; nombre: string }[];
   pagaPorDefecto?: number | null;
 }) {
@@ -81,7 +81,7 @@ export function FormDevolucion({
         metodoPago: metodo,
         vuelveAlStock: destino === "stock",
         motivo,
-        pagaId: metodo === "bizum" ? paga : null,
+        pagaId: paga,
       });
       if (r?.error) return setError(r.error);
       setHecho(
@@ -194,10 +194,10 @@ export function FormDevolucion({
           {metodo !== metodoPago && (
             <p className="mt-1 text-xs text-amber-700">{t("La venta se cobró en {metodo}.", { metodo: nombrePago(metodoPago) })}</p>
           )}
-          {metodo === "bizum" && socios.length > 1 && (
+          {socios.length > 1 && (
             <div className="mt-2 flex items-center justify-between gap-3 text-sm">
               <span className="text-zinc-500">{t("Lo devuelve")}</span>
-              <div className="segmento" role="radiogroup" aria-label={t("Quién devuelve el Bizum")}>
+              <div className="segmento" role="radiogroup" aria-label={t("Quién devuelve el dinero")}>
                 {socios.map((s) => (
                   <button key={s.id} type="button" role="radio" aria-checked={paga === s.id} onClick={() => setPaga(s.id)} className="py-1">
                     {s.nombre}

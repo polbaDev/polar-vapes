@@ -10,7 +10,6 @@
   "Total": "Total",
   "Anulada": "Anul·lada",
   "Ver": "Veure",
-
   "Compra #{id}": "Compra #{id}",
   "Factura {numero}": "Factura {numero}",
   "Anulada {fecha}": "Anul·lada {fecha}",
@@ -27,10 +26,8 @@
   "Si la registraste por error. Retira esas unidades del stock (solo es posible si aún no las has vendido).": "Si la vas registrar per error. Retira aquestes unitats de l'estoc (només és possible si encara no les has venudes).",
   "Sí, quiero anular esta compra": "Sí, vull anul·lar aquesta compra",
   "Anulando…": "Anul·lant…",
-
   "Rellenada con tu pedido. Revisa cantidades y costes con la factura antes de guardar.": "Emplenada amb la teva comanda. Revisa quantitats i costos amb la factura abans de desar.",
   "Lo que registres aquí entra en el stock al guardar.": "El que registris aquí entra a l'estoc en desar.",
-
   "No está en el catálogo: {codigo}": "No és al catàleg: {codigo}",
   "{sabor}: {n} uds.": "{sabor}: {n} u.",
   "Añadido: {sabor} ({modelo})": "Afegit: {sabor} ({modelo})",
@@ -61,7 +58,6 @@
   "Productos ({n} uds.)": "Productes ({n} u.)",
   "Guardar compra y meter en stock": "Desar la compra i afegir a l'estoc",
   "Cancelar": "Cancel·lar",
-
   "Lo que te conviene pedir según lo que vendes y el stock que tienes. Puedes cambiar las cantidades antes de enviarlo.": "El que et convé demanar segons el que vens i l'estoc que tens. Pots canviar les quantitats abans d'enviar-la.",
   "Stock para": "Estoc per a",
   "{n} días": "{n} dies",
@@ -74,7 +70,6 @@
   "Calcular": "Calcular",
   "Pide lo que venderías en esos días al ritmo actual, más el stock mínimo de cada sabor como colchón, menos lo que ya tienes.": "Demana el que vendries en aquests dies al ritme actual, més l'estoc mínim de cada sabor com a coixí, menys el que ja tens.",
   "«Proveedor» filtra por el último proveedor al que compraste cada sabor.": "«Proveïdor» filtra per l'últim proveïdor a qui vas comprar cada sabor.",
-
   "agotado": "esgotat",
   "{stock} en stock": "{stock} en estoc",
   "{stock} en stock · se acaba hoy": "{stock} en estoc · s'acaba avui",
@@ -102,5 +97,10 @@
   "Copiar": "Copiar",
   "{proveedor} no tiene un móvil válido guardado: WhatsApp te dejará elegir a quién enviarlo.": "{proveedor} no té cap mòbil vàlid desat: WhatsApp et deixarà triar a qui enviar-la.",
   "Cuando llegue, regístralo como compra →": "Quan arribi, registra-la com a compra →",
-  "Se abre la compra con estos sabores y cantidades; solo tendrás que revisar los costes.": "S'obre la compra amb aquests sabors i quantitats; només hauràs de revisar els costos."
+  "Se abre la compra con estos sabores y cantidades; solo tendrás que revisar los costes.": "S'obre la compra amb aquests sabors i quantitats; només hauràs de revisar els costos.",
+  "Añadir o editar proveedores": "Afegir o editar proveïdors",
+  "Teléfono del proveedor": "Telèfon del proveïdor",
+  "Teléfono (opcional)": "Telèfon (opcional)",
+  "Ver y editar proveedores": "Veure i editar proveïdors",
+  "Elige un proveedor de la lista.": "Tria un proveïdor de la llista."
 }

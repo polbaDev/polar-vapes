@@ -14,6 +14,9 @@ export default async function Compras() {
         subtitulo={t("Pedidos a proveedores. Cada compra suma stock y actualiza el coste medio.")}
         acciones={
           <>
+            <Link href="/catalogo/proveedores" className="btn-sec">
+              {t("Proveedores")}
+            </Link>
             <Link href="/compras/pedido" className="btn-sec">
               {t("Pedido sugerido")}
             </Link>

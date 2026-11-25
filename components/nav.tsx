@@ -17,10 +17,8 @@ const SECCIONES: Enlace[] = [
   { href: "/compras", texto: tx("Compras"), icono: "camion" },
   { href: "/inventario", texto: tx("Stock"), icono: "caja" },
   { href: "/reservas", texto: tx("Reservas"), icono: "pedido" },
-  { href: "/caja", texto: tx("Caja"), icono: "carrito" },
   { href: "/catalogo", texto: tx("Catálogo"), icono: "tienda" },
-  // En el móvil no cabe arriba: está en el menú del círculo y en Inicio
-  { href: "/socios", texto: tx("Socios"), icono: "socios", soloEscritorio: true },
+  { href: "/socios", texto: tx("Socios"), icono: "socios" },
 ];
 
 // Accesos rápidos del riel (escritorio)

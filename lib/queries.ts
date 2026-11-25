@@ -162,7 +162,7 @@ export type VentaFila = {
   coste: string;
   unidades: number;
   anulada: boolean;
-  // Quién la cobró (null: antes de las cuentas) y a quién le llegó el dinero (null: cajón o cuenta común)
+  // Quién la cobró (null: antes de las cuentas) y quién se quedó el dinero (null: sin indicar)
   vendedorId: number | null;
   vendedor: string | null;
   recibe: string | null;
@@ -284,7 +284,7 @@ export async function listarCompras(limite = 200) {
     // Socio que la pagó (null: dinero de la tienda o antes de las cuentas)
     paga: string | null;
   }>(sql`
-    select c.id, to_char(c.fecha, 'YYYY-MM-DD') as fecha, pr.nombre as proveedor, c.num_factura as "numFactura",
+    select c.id, to_char(c.fecha, 'YYYY-MM-DD') as fecha, pr.nombre as proveedor, c.proveedor_id as "proveedorId", c.num_factura as "numFactura",
            c.total, c.anulada, coalesce(sum(l.cantidad), 0)::int as unidades, p.nombre as paga
     from compras c
     left join proveedores pr on pr.id = c.proveedor_id
@@ -301,6 +301,7 @@ export async function detalleCompra(id: number) {
     id: number;
     fecha: string;
     proveedor: string | null;
+    proveedorId: number | null;
     numFactura: string | null;
     gastosEnvio: string;
     total: string;

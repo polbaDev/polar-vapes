@@ -50,6 +50,13 @@
       "when": 1795559706937,
       "tag": "0006_socios",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795626590139,
+      "tag": "0007_sin_caja_aportaciones",
+      "breakpoints": true
     }
   ]
 }

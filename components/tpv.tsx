@@ -11,7 +11,7 @@ import { useT } from "./preferencias";
 import { redondear } from "@/lib/format";
 import { tx } from "@/lib/i18n";
 
-const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
 const PAGOS = [
   { value: "efectivo", label: tx("Efectivo") },
   { value: "tarjeta", label: tx("Tarjeta") },
@@ -62,25 +62,29 @@ function nuevaClave() {
 
 export type SocioEnTpv = { id: number; nombre: string };
 
+// Cómo se pregunta quién se queda el dinero según la forma de pago
+const DESTINO: Record<string, { etiqueta: string; pregunta: string; uno: string }> = {
+  efectivo: { etiqueta: tx("Se lo queda"), pregunta: tx("Quién se queda el efectivo"), uno: tx("Se lo queda {nombre}.") },
+  bizum: { etiqueta: tx("Le llega a"), pregunta: tx("A quién le llega el Bizum"), uno: tx("Le llega a {nombre}.") },
+  tarjeta: { etiqueta: tx("Entra en la cuenta de"), pregunta: tx("A qué cuenta va la tarjeta"), uno: tx("Entra en la cuenta de {nombre}.") },
+};
+
 export function Tpv({
   variantes,
   reserva = null,
   socios = [],
   yo,
-  tarjetaA = null,
 }: {
   variantes: VarianteLigera[];
   reserva?: ReservaEnTpv | null;
-  // Socios a los que les puede llegar un Bizum (a su móvil)
+  // Socios que se pueden quedar el dinero del cobro (efectivo, Bizum a su móvil o tarjeta a su cuenta)
   socios?: SocioEnTpv[];
   // Cuenta de quien cobra
   yo: number;
-  // Socio al que le llega lo cobrado con tarjeta (null: cuenta de la tienda)
-  tarjetaA?: string | null;
 }) {
   const t = useT();
   const router = useRouter();
-  // El Bizum le llega por defecto a quien cobra (si es socio)
+  // El dinero se lo queda por defecto quien cobra (si es socio)
   const recibePorDefecto = socios.find((s) => s.id === yo)?.id ?? socios[0]?.id ?? null;
   const [recibe, setRecibe] = useState<number | null>(recibePorDefecto);
   const [q, setQ] = useState("");
@@ -250,7 +254,7 @@ export function Tpv({
     if (lineas.length === 0) return setError(t("El ticket está vacío."));
     if (!mayorEdad) return setError(t("Marca la casilla de mayor de edad antes de cobrar."));
     // Mismo ticket que el último intento sin confirmar → misma clave: si aquel se guardó, no se cobra dos veces
-    const recibeId = pago === "bizum" ? recibe : null;
+    const recibeId = recibe;
     const huella = JSON.stringify([
       [...lineas].sort((a, b) => a.id - b.id).map((l) => [l.id, l.cantidad]),
       pago,
@@ -578,10 +582,10 @@ export function Tpv({
               ))}
             </div>
 
-            {pago === "bizum" && socios.length > 1 && (
+            {socios.length > 1 && (
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-zinc-500">{t("Le llega a")}</span>
-                <div className="segmento" role="radiogroup" aria-label={t("A quién le llega el Bizum")}>
+                <span className="text-zinc-500">{t(DESTINO[pago]?.etiqueta ?? DESTINO.efectivo.etiqueta)}</span>
+                <div className="segmento" role="radiogroup" aria-label={t(DESTINO[pago]?.pregunta ?? DESTINO.efectivo.pregunta)}>
                   {socios.map((s) => (
                     <button
                       key={s.id}
@@ -598,12 +602,9 @@ export function Tpv({
                 </div>
               </div>
             )}
-            {pago === "bizum" && socios.length === 1 && (
-              <p className="text-xs text-zinc-500">{t("Le llega a {nombre}.", { nombre: socios[0].nombre })}</p>
-            )}
-            {pago === "tarjeta" && (
+            {socios.length === 1 && (
               <p className="text-xs text-zinc-500">
-                {tarjetaA ? t("Entra en la cuenta de {nombre}.", { nombre: tarjetaA }) : t("Entra en la cuenta de la tienda.")}
+                {t(DESTINO[pago]?.uno ?? DESTINO.efectivo.uno, { nombre: socios[0].nombre })}
               </p>
             )}
 

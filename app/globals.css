@@ -176,6 +176,65 @@
   .campo:disabled { background-color: var(--superficie-2); color: var(--texto-3); }
   .etiqueta { display: block; margin-bottom: .35rem; font-size: .86rem; font-weight: 600; color: var(--texto); }
 
+  /* Desplegables: misma forma que los campos, con flecha propia en vez de la del sistema */
+  select.campo {
+    appearance: none;
+    cursor: pointer;
+    padding-right: 2.4rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238a7c80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .8rem center;
+    background-size: 14px;
+  }
+  select.campo:hover:not(:disabled) { border-color: var(--borde-fuerte); }
+  select.campo option { background-color: var(--superficie); color: var(--texto); }
+
+  /* Donde el navegador lo permite (Chrome, Edge), la lista que se abre también lleva la estética de la app */
+  @supports (appearance: base-select) {
+    select.campo, select.campo::picker(select) { appearance: base-select; }
+    select.campo { display: flex; align-items: center; gap: .5rem; padding-right: .75rem; background-image: none; }
+    select.campo::picker-icon {
+      content: "";
+      width: 14px;
+      height: 14px;
+      margin-left: auto;
+      background-color: var(--texto-3);
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+      transition: rotate .2s var(--curva);
+    }
+    select.campo:open::picker-icon { rotate: 180deg; }
+    select.campo:open { border-color: var(--primario); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primario) 18%, transparent); }
+    select.campo::picker(select) {
+      margin-block: 6px;
+      padding: 5px;
+      border: 1px solid var(--borde-tarjeta);
+      border-radius: 14px;
+      background-color: var(--superficie);
+      box-shadow: var(--sombra-flot);
+      max-height: min(320px, 60vh);
+    }
+    select.campo option {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .75rem;
+      border-radius: 9px;
+      font-size: 15px;
+      cursor: pointer;
+      background-color: transparent;
+    }
+    /* Un poco de aire entre opciones: el resaltado de una no toca a la siguiente */
+    select.campo option + option { margin-top: 3px; }
+    select.campo option:is(:hover, :focus-visible) { background-color: color-mix(in srgb, var(--texto) 7%, transparent); outline: none; }
+    select.campo option:checked { background-color: color-mix(in srgb, var(--primario) 10%, transparent); color: var(--primario); font-weight: 600; }
+    select.campo option::checkmark { order: 1; margin-left: auto; content: "✓"; }
+    select.campo option:disabled { color: var(--texto-3); cursor: default; }
+  }
+
+  /* Fechas: el icono del calendario, discreto */
+  input.campo::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
+  input.campo::-webkit-calendar-picker-indicator:hover { opacity: .85; }
+
   /* ---------- Botones (píldoras) ---------- */
   .btn, .btn-sec, .btn-peligro {
     display: inline-flex;

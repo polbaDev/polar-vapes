@@ -77,15 +77,6 @@ export function Dato({ etiqueta, valor, detalle }: { etiqueta: string; valor: Re
   );
 }
 
-// Resultado de un cierre de caja: contado - esperado
-export async function InsigniaDescuadre({ valor }: { valor: number | string }) {
-  const t = await traductor();
-  const n = Number(valor);
-  if (n === 0) return <Insignia tono="verde">{t("Cuadra")}</Insignia>;
-  if (n < 0) return <Insignia tono="rojo">{t("Faltan {importe}", { importe: euros(-n) })}</Insignia>;
-  return <Insignia tono="ambar">{t("Sobran {importe}", { importe: euros(n) })}</Insignia>;
-}
-
 export function InsigniaStock({ stock, minimo }: { stock: number; minimo: number }) {
   if (stock <= 0) return <Insignia tono="rojo">{stock}</Insignia>;
   if (stock <= minimo) return <Insignia tono="ambar">{stock}</Insignia>;

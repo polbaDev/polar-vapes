@@ -16,16 +16,13 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
   const [v, socios] = await Promise.all([Number.isInteger(id) ? detalleVenta(id) : null, listarSocios()]);
   if (!v) notFound();
   // Dónde acabó el dinero de esta venta
-  const destino =
-    v.metodoPago === "efectivo"
-      ? t("Al cajón (de los dos)")
+  const destino = !v.recibe
+    ? t("Sin indicar quién se lo quedó")
+    : v.metodoPago === "efectivo"
+      ? t("Efectivo, se lo quedó {nombre}", { nombre: v.recibe })
       : v.metodoPago === "bizum"
-        ? v.recibe
-          ? t("Bizum a {nombre}", { nombre: v.recibe })
-          : t("Bizum, sin indicar a quién")
-        : v.recibe
-          ? t("Tarjeta, a la cuenta de {nombre}", { nombre: v.recibe })
-          : t("Tarjeta, a la cuenta de la tienda");
+        ? t("Bizum a {nombre}", { nombre: v.recibe })
+        : t("Tarjeta, a la cuenta de {nombre}", { nombre: v.recibe });
   const devuelto = v.devoluciones.reduce((s, d) => s + Number(d.importe), 0);
   // Coste de lo que se queda el cliente (lo defectuoso devuelto sigue contando como coste: es pérdida)
   const coste = v.lineas.reduce((s, l) => s + l.cantidad * Number(l.costeUnidad) - Number(l.costeDevuelto), 0);
@@ -121,20 +118,24 @@ export default async function Venta({ params }: { params: Promise<{ id: string }
             <dd className="text-right">{destino}</dd>
           </div>
         </dl>
-        {!v.anulada && v.metodoPago !== "efectivo" && socios.length > 0 && (
+        {!v.anulada && socios.length > 0 && (
           <FormAccion accion={cambiarRecibeVenta} className="flex flex-wrap items-end gap-2 border-t border-zinc-200 px-4 py-3">
             <input type="hidden" name="id" value={v.id} />
             <div className="min-w-0 flex-1">
               <label className="etiqueta" htmlFor="recibe">
-                {v.metodoPago === "bizum" ? t("¿A quién le llegó el Bizum?") : t("¿A qué cuenta fue la tarjeta?")}
+                {v.metodoPago === "efectivo"
+                  ? t("¿Quién se quedó el efectivo?")
+                  : v.metodoPago === "bizum"
+                    ? t("¿A quién le llegó el Bizum?")
+                    : t("¿A qué cuenta fue la tarjeta?")}
               </label>
-              <select id="recibe" name="recibe" defaultValue={v.recibeId ?? "comun"} className="campo">
+              <select id="recibe" name="recibe" defaultValue={v.recibeId ?? ""} required className="campo">
+                {!v.recibeId && <option value="">{t("Elige…")}</option>}
                 {socios.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}
                   </option>
                 ))}
-                <option value="comun">{t("Cuenta de la tienda (de los dos)")}</option>
               </select>
             </div>
             <BotonEnviar className="btn-sec">{t("Cambiar")}</BotonEnviar>

@@ -36,9 +36,9 @@ export const imagenes = pgTable("imagenes", {
 
 // ---------- Cuentas ----------
 
-// Cada persona entra con su nombre y su contraseña. Lo que hace queda a su nombre (ventas, compras, caja…).
+// Cada persona entra con su nombre y su contraseña. Lo que hace queda a su nombre (ventas, compras…).
 // socio: entra en el reparto al 50 % y puede tener dinero de la tienda (Bizum a su móvil, lo que se lleva
-// del cajón, compras que paga de su bolsillo). Una cuenta compartida de la tienda no sería socio.
+// en efectivo, compras que paga). Una cuenta compartida de la tienda no sería socio.
 // No se borran: se desactivan, y sus ventas siguen a su nombre.
 export const usuarios = pgTable(
   "usuarios",
@@ -198,7 +198,7 @@ export const ventas = pgTable(
     clave: text("clave").unique(),
     // Quién la cobró (cuenta para sus ventas)
     usuarioId: usuarioRef("usuario_id"),
-    // Socio al que le llega el dinero (Bizum a su móvil, tarjeta a su cuenta). null = cajón o cuenta común
+    // Socio que se queda el dinero (efectivo, Bizum a su móvil, tarjeta a su cuenta). null = sin indicar (ventas antiguas)
     recibeId: usuarioRef("recibe_id"),
     anuladaPorId: usuarioRef("anulada_por_id"),
   },
@@ -245,7 +245,7 @@ export const devoluciones = pgTable(
     vuelveAlStock: boolean("vuelve_al_stock").notNull(),
     motivo: text("motivo"),
     usuarioId: usuarioRef("usuario_id"),
-    // Socio que devuelve el dinero (Bizum desde su móvil…). null = cajón o cuenta común
+    // Socio que devuelve el dinero (en mano, por Bizum…). null = sin indicar (devoluciones antiguas)
     pagaId: usuarioRef("paga_id"),
   },
   (t) => [
@@ -278,64 +278,6 @@ export const lineasDevolucion = pgTable(
     index("lineas_devolucion_devolucion_idx").on(t.devolucionId),
     index("lineas_devolucion_linea_venta_idx").on(t.lineaVentaId),
     check("lineas_devolucion_cantidad_ck", sql`${t.cantidad} > 0`),
-  ],
-);
-
-// ---------- Caja ----------
-
-// Cada cierre cubre desde el cierre anterior (o el inicio del día, el primero) hasta el momento de cerrar.
-// Las cifras se guardan como foto de ese momento: no cambian aunque luego se anule una venta.
-export const cierresCaja = pgTable(
-  "cierres_caja",
-  {
-    id: serial("id").primaryKey(),
-    desde: timestamp("desde", { withTimezone: true }).notNull(),
-    hasta: timestamp("hasta", { withTimezone: true }).notNull(),
-    fondoInicial: numeric("fondo_inicial", { precision: 10, scale: 2 }).notNull(),
-    ventasEfectivo: numeric("ventas_efectivo", { precision: 12, scale: 2 }).notNull(),
-    // Ventas en efectivo anuladas en este periodo (dinero devuelto al cliente)
-    devolucionesEfectivo: numeric("devoluciones_efectivo", { precision: 12, scale: 2 }).notNull(),
-    entradas: numeric("entradas", { precision: 12, scale: 2 }).notNull(),
-    salidas: numeric("salidas", { precision: 12, scale: 2 }).notNull(),
-    esperado: numeric("esperado", { precision: 12, scale: 2 }).notNull(),
-    contado: numeric("contado", { precision: 12, scale: 2 }).notNull(),
-    // contado - esperado: positivo = sobra dinero, negativo = falta
-    descuadre: numeric("descuadre", { precision: 12, scale: 2 }).notNull(),
-    // Efectivo que se queda en el cajón para empezar el siguiente periodo
-    fondoSiguiente: numeric("fondo_siguiente", { precision: 10, scale: 2 }).notNull(),
-    // Netos del periodo (ventas menos anulaciones), para comprobar con el datáfono y el móvil
-    ventasTarjeta: numeric("ventas_tarjeta", { precision: 12, scale: 2 }).notNull(),
-    ventasBizum: numeric("ventas_bizum", { precision: 12, scale: 2 }).notNull(),
-    tickets: integer("tickets").notNull(),
-    notas: text("notas"),
-    usuarioId: usuarioRef("usuario_id"),
-    // Socio que se lleva el efectivo (contado - fondo_siguiente). null = va a la cuenta de la tienda
-    recibeId: usuarioRef("recibe_id"),
-  },
-  (t) => [
-    index("cierres_caja_hasta_idx").on(t.hasta),
-    check("cierres_caja_importes_ck", sql`${t.contado} >= 0 and ${t.fondoSiguiente} >= 0 and ${t.fondoSiguiente} <= ${t.contado}`),
-  ],
-);
-
-// Dinero que entra o sale del cajón sin ser una venta: pagar a un repartidor, llevar al banco, poner cambio…
-// tipo: entrada | salida
-export const movimientosCaja = pgTable(
-  "movimientos_caja",
-  {
-    id: serial("id").primaryKey(),
-    fecha: timestamp("fecha", { withTimezone: true }).notNull().defaultNow(),
-    tipo: text("tipo").notNull(),
-    importe: numeric("importe", { precision: 10, scale: 2 }).notNull(),
-    motivo: text("motivo").notNull(),
-    usuarioId: usuarioRef("usuario_id"),
-    // Socio que se lleva el dinero (salida) o lo pone de su bolsillo (entrada). null = es de la tienda
-    socioId: usuarioRef("socio_id"),
-  },
-  (t) => [
-    index("movimientos_caja_fecha_idx").on(t.fecha),
-    check("movimientos_caja_importe_ck", sql`${t.importe} > 0`),
-    check("movimientos_caja_tipo_ck", sql`${t.tipo} in ('entrada', 'salida')`),
   ],
 );
 
@@ -430,12 +372,14 @@ export const movimientosStock = pgTable(
 
 // ---------- Dinero entre socios ----------
 
-// Lo que mueve dinero entre los socios sin ser una venta, una compra ni la caja.
-// de_id: socio cuyo saldo baja; para_id: socio cuyo saldo sube (el saldo es el dinero de la tienda que tiene).
-// tipo: pago    — un socio le pasa dinero al otro (de → para)
-//       gasto   — un socio paga de su bolsillo algo de la tienda que no es stock (de)
-//       reparto — un socio se queda dinero de la tienda como ganancia (de); se apunta lo mismo a cada uno
-//       ajuste  — saldo de partida: puso dinero suyo (de) o tiene dinero de la tienda (para)
+// Lo que mueve dinero entre los socios sin ser una venta ni una compra.
+// de_id: socio cuyo saldo baja; para_id: socio cuyo saldo sube (el saldo es el dinero de la tienda que tiene,
+// menos lo que ha puesto de su bolsillo).
+// tipo: pago       — un socio le pasa dinero al otro (de → para)
+//       gasto      — un socio paga algo de la tienda que no es stock (de)
+//       reparto    — un socio se queda dinero de la tienda como ganancia (de); se apunta lo mismo a cada uno
+//       ajuste     — saldo de partida: puso dinero suyo (de) o tiene dinero de la tienda (para)
+//       aportacion — un socio pone dinero suyo en el bote (de) y lo guarda él mismo o el otro (para)
 // No se borran: se anulan y siguen a la vista.
 export const movimientosSocios = pgTable(
   "movimientos_socios",
@@ -454,8 +398,8 @@ export const movimientosSocios = pgTable(
   },
   (t) => [
     index("movimientos_socios_fecha_idx").on(t.fecha),
-    check("movimientos_socios_tipo_ck", sql`${t.tipo} in ('pago', 'gasto', 'reparto', 'ajuste')`),
+    check("movimientos_socios_tipo_ck", sql`${t.tipo} in ('pago', 'gasto', 'reparto', 'ajuste', 'aportacion')`),
     check("movimientos_socios_importe_ck", sql`${t.importe} > 0`),
-    check("movimientos_socios_partes_ck", sql`(${t.deId} is not null or ${t.paraId} is not null) and ${t.deId} is distinct from ${t.paraId}`),
+    check("movimientos_socios_partes_ck", sql`(${t.deId} is not null or ${t.paraId} is not null) and (${t.deId} is distinct from ${t.paraId} or ${t.tipo} = 'aportacion')`),
   ],
 );

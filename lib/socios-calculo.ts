@@ -38,3 +38,30 @@ export function proximaCompra(saldos: SaldoSocio[]) {
   if (diferencia < 0.01) return null;
   return { id: a.id, nombre: a.nombre, importe: diferencia };
 }
+
+const centimos = (n: number) => Math.round(n * 100) / 100;
+
+export type CuentaSocio = SaldoSocio & { tiene: number; aportado: number };
+export type ParteSocio = CuentaSocio & { suyo: number; diferencia: number };
+
+// De quién es el bote. Las ganancias son lo que hay en el bote por encima de lo que habéis aportado
+// (negativas: hay menos de lo aportado, porque está en stock sin vender). Lo de cada uno («suyo») es lo
+// que aportó más su parte igual de las ganancias. diferencia = lo que tiene − lo suyo: positiva, tiene
+// dinero del otro; negativa, el otro tiene dinero suyo. Es lo mismo que igualar los saldos.
+export function repartoBote(socios: CuentaSocio[]) {
+  const bote = centimos(socios.reduce((s, x) => s + x.tiene, 0));
+  const aportado = centimos(socios.reduce((s, x) => s + x.aportado, 0));
+  const ganancias = centimos(bote - aportado);
+  const porSocio = socios.length ? ganancias / socios.length : 0;
+  const partes: ParteSocio[] = socios.map((x) => {
+    const suyo = centimos(x.aportado + porSocio);
+    return { ...x, suyo, diferencia: centimos(x.tiene - suyo) };
+  });
+  return { bote, aportado, ganancias, porSocio: centimos(porSocio), partes };
+}
+
+// Pagos entre socios para que, después de pagar una compra de `importe` el socio `pagaId`, sigáis a medias
+export function pagosParaCompra(saldos: SaldoSocio[], pagaId: number, importe: number): PagoSugerido[] {
+  if (!(importe > 0) || !saldos.some((s) => s.id === pagaId)) return [];
+  return pagosParaIgualar(saldos.map((s) => (s.id === pagaId ? { ...s, saldo: s.saldo - importe } : s)));
+}

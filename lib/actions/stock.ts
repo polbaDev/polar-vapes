@@ -18,7 +18,7 @@ import {
 import { costeTrasAnularCompra } from "@/lib/coste-calculo";
 import { importesDevolucion } from "@/lib/devolucion-calculo";
 import { exigirSesion } from "@/lib/session";
-import { esSocioActivo, tarjetaRecibe } from "@/lib/socios";
+import { esSocioActivo } from "@/lib/socios";
 import { METODOS_PAGO, MOTIVOS_AJUSTE, valores, etiqueta } from "@/lib/constants";
 import { euros, redondear } from "@/lib/format";
 import { tx } from "@/lib/i18n";
@@ -34,22 +34,19 @@ function refrescarStock() {
 
 type Ejecutor = NonNullable<Parameters<typeof esSocioActivo>[1]>;
 
-const FALTA_BIZUM_VENTA = tx("Elige a quién le llega el Bizum.");
-const FALTA_BIZUM_DEVOLUCION = tx("Elige quién devuelve el Bizum.");
+const FALTA_SOCIO_VENTA = tx("Elige quién se queda el dinero.");
+const FALTA_SOCIO_DEVOLUCION = tx("Elige quién devuelve el dinero.");
 
-// Socio que tiene (o pone) el dinero de un cobro o un pago, según cómo se pague:
-//  - efectivo: va al cajón, que es de todos (null)
-//  - tarjeta: a quien esté elegido en Socios → Cuentas (null = cuenta de la tienda)
-//  - bizum: al socio que se elige en la pantalla (a su móvil). Obligatorio si hay socios.
-async function socioDelDinero(ej: Ejecutor, metodo: string, elegido: number | null | undefined, faltaBizum: string, t: (s: string) => string) {
-  if (metodo === "efectivo") return null;
-  if (metodo === "tarjeta") return tarjetaRecibe(ej);
+// Socio que se queda (o pone) el dinero de un cobro o una devolución, se pague como se pague: el efectivo
+// se lo queda uno, el Bizum le llega a su móvil y la tarjeta entra en su cuenta. No hay cajón ni cuenta
+// común: todo el dinero está a nombre de alguien. Obligatorio si hay socios.
+async function socioDelDinero(ej: Ejecutor, elegido: number | null | undefined, falta: string, t: (s: string) => string) {
   if (elegido != null) {
     if (!Number.isInteger(elegido) || !(await esSocioActivo(elegido, ej))) throw new Error(t("Elige un socio de la lista."));
     return elegido;
   }
   const [hay] = (await ej.execute(sql`select exists (select 1 from usuarios where socio and activo) as hay`)) as unknown as { hay: boolean }[];
-  if (hay.hay) throw new Error(t(faltaBizum));
+  if (hay.hay) throw new Error(t(falta));
   return null;
 }
 
@@ -59,12 +56,14 @@ export type LineaCompraInput = { varianteId: number; cantidad: number; costeUnid
 export type CompraInput = {
   proveedorId: number | null;
   proveedorNuevo?: string | null;
+  // Teléfono del proveedor nuevo (si ya existía sin teléfono, se le pone)
+  proveedorTelefono?: string | null;
   fecha: string;
   numFactura?: string | null;
   gastosEnvio: number;
   notas?: string | null;
   lineas: LineaCompraInput[];
-  // Socio que la paga de su bolsillo; null = con dinero de la tienda (caja o cuenta común)
+  // Socio que la paga (con dinero de la tienda que tiene o de su bolsillo). Obligatorio si hay socios
   pagaId: number | null;
 };
 
@@ -73,9 +72,7 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
   const t = await traductor();
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.fecha)) throw new Error(tx("Fecha no válida."));
-    if (input.pagaId != null && (!Number.isInteger(input.pagaId) || !(await esSocioActivo(input.pagaId)))) {
-      throw new Error(tx("Elige quién paga la compra."));
-    }
+    await socioDelDinero(db, input.pagaId, tx("Elige quién paga la compra."), t);
     const lineas = input.lineas.filter((l) => l.varianteId);
     if (lineas.length === 0) throw new Error(tx("Añade al menos un producto a la compra."));
     for (const l of lineas) {
@@ -92,10 +89,12 @@ export async function crearCompra(input: CompraInput): Promise<Resultado> {
       let proveedorId = input.proveedorId || null;
       const nuevo = input.proveedorNuevo?.trim();
       if (nuevo) {
+        const telefono = input.proveedorTelefono?.trim().slice(0, 40) || null;
         const [ex] = await tx.select().from(proveedores).where(sql`lower(${proveedores.nombre}) = lower(${nuevo})`);
+        if (ex && telefono && !ex.telefono) await tx.update(proveedores).set({ telefono }).where(eq(proveedores.id, ex.id));
         proveedorId = ex
           ? ex.id
-          : (await tx.insert(proveedores).values({ nombre: nuevo }).returning({ id: proveedores.id }))[0].id;
+          : (await tx.insert(proveedores).values({ nombre: nuevo, telefono }).returning({ id: proveedores.id }))[0].id;
       }
 
       const [c] = await tx
@@ -326,13 +325,13 @@ export async function crearVenta(input: VentaInput): Promise<Resultado & { total
           t("Los precios han cambiado: el total ahora es {total}. Revisa el ticket y vuelve a cobrar.", { total: euros(total) }),
         );
       }
-      const recibeId = await socioDelDinero(tx, input.metodoPago, input.recibeId, FALTA_BIZUM_VENTA, t);
+      const recibeId = await socioDelDinero(tx, input.recibeId, FALTA_SOCIO_VENTA, t);
 
       const [ve] = await tx
         .insert(ventas)
         .values({
-          // Hora real de la base de datos (no la del inicio de la transacción) para que el cierre de caja
-          // nunca deje fuera una venta que se estaba guardando justo al cerrar
+          // Hora real de la base de datos (no la del inicio de la transacción), para ordenar bien
+          // las ventas que se guardan a la vez
           fecha: sql`clock_timestamp()`,
           metodoPago: input.metodoPago,
           subtotal: subtotal.toFixed(2),
@@ -411,7 +410,6 @@ export async function anularVenta(_: Resultado, fd: FormData): Promise<Resultado
         v.stock += l.cantidad;
         v.coste = coste;
       }
-      // La hora de anulación decide en qué cierre de caja sale el dinero devuelto
       await tx.update(ventas).set({ anulada: true, anuladaEn: sql`clock_timestamp()`, anuladaPorId: yo.id }).where(eq(ventas.id, id));
     });
   } catch (e) {
@@ -484,12 +482,12 @@ export async function crearDevolucion(input: DevolucionInput): Promise<Resultado
         })),
       );
 
-      const pagaId = await socioDelDinero(tx, input.metodoPago, input.pagaId, FALTA_BIZUM_DEVOLUCION, t);
+      const pagaId = await socioDelDinero(tx, input.pagaId, FALTA_SOCIO_DEVOLUCION, t);
       const [d] = await tx
         .insert(devoluciones)
         .values({
           ventaId: ve.id,
-          // Hora real: decide en qué cierre de caja sale el dinero
+          // Hora real de la base de datos
           fecha: sql`clock_timestamp()`,
           metodoPago: input.metodoPago,
           importe: total.toFixed(2),

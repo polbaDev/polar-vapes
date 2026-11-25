@@ -2,28 +2,27 @@ import Link from "next/link";
 import { Cabecera, Dato, InsigniaStock, Vacio } from "@/components/ui";
 import { Foto } from "@/components/foto";
 import { listarVariantes, resumenPeriodo, topSabores } from "@/lib/queries";
-import { estadoCaja } from "@/lib/caja";
 import { contarPendientes } from "@/lib/reservas";
-import { euros, fecha, hoyISO } from "@/lib/format";
+import { euros, hoyISO } from "@/lib/format";
 import { saldosSocios, ventasPorPersona } from "@/lib/socios";
 import { pagosParaIgualar } from "@/lib/socios-calculo";
 import { traductor } from "@/lib/i18n/servidor";
 
 export default async function Inicio() {
   const t = await traductor();
-  const [hoy, semana, mes, top, variantes, caja, reservasPendientes, saldos, ventasHoy] = await Promise.all([
+  const [hoy, semana, mes, top, variantes, reservasPendientes, saldos, ventasHoy] = await Promise.all([
     resumenPeriodo(1),
     resumenPeriodo(7),
     resumenPeriodo(30),
     topSabores(30),
     listarVariantes(),
-    estadoCaja(),
     contarPendientes(),
     saldosSocios(),
     ventasPorPersona(hoyISO(), hoyISO()),
   ]);
   const delReparto = saldos.filter((s) => s.socio);
   const pagos = pagosParaIgualar(delReparto);
+  const bote = Math.round(saldos.reduce((suma, s) => suma + s.tiene, 0) * 100) / 100;
   const bajos = variantes
     .filter((v) => v.stock <= v.stockMinimo && (v.stockMinimo > 0 || v.stock <= 0))
     .sort((a, b) => a.stock - b.stock);
@@ -89,15 +88,6 @@ export default async function Inicio() {
         </div>
       )}
 
-      {caja.pendienteDeOtroDia && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <span>{t("La caja está sin cerrar desde el {fecha}.", { fecha: fecha(caja.periodo.desde) })}</span>
-          <Link href="/caja" className="font-medium underline">
-            {t("Cerrar caja")}
-          </Link>
-        </div>
-      )}
-
       {sinPrecio.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <span>
@@ -132,7 +122,14 @@ export default async function Inicio() {
 
       <section className="tarjeta mt-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-          <h2 className="font-semibold">{t("Socios")}</h2>
+          <h2 className="font-semibold">
+            {t("Socios")}
+            {saldos.length > 0 && (
+              <span className="ml-2 font-normal text-zinc-500">
+                · {t("Bote")} <span className="tabular-nums">{euros(bote)}</span>
+              </span>
+            )}
+          </h2>
           <Link href="/socios" className="text-sm enlace">
             {t("Ver cuentas")}
           </Link>

@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { compras, movimientosSocios, ventas } from "@/lib/db/schema";
+import { compras, movimientosSocios, proveedores, ventas } from "@/lib/db/schema";
 import { exigirSesion } from "@/lib/session";
 import { esSocioActivo } from "@/lib/socios";
 import { listarSocios } from "@/lib/usuarios";
@@ -30,15 +30,14 @@ async function socioDe(fd: FormData, campo: string, t: T) {
   return id;
 }
 
-// «comun» (o vacío) = dinero de la tienda; si no, un socio activo
-async function socioOComun(valor: string, t: T) {
-  if (valor === "comun" || valor === "") return null;
+// Siempre un socio activo: no hay caja ni cuenta común
+async function socioElegido(valor: string, t: T) {
   const id = Number(valor);
-  if (!Number.isInteger(id) || !(await esSocioActivo(id))) throw new Error(t("Elige un socio de la lista."));
+  if (!valor || !Number.isInteger(id) || !(await esSocioActivo(id))) throw new Error(t("Elige un socio de la lista."));
   return id;
 }
 
-// Apunta un pago entre socios, un gasto, un reparto de ganancias o un saldo de partida
+// Apunta un pago entre socios, una aportación al bote, un gasto, un reparto de ganancias o un saldo de partida
 export async function apuntarMovimientoSocio(_: Resultado, fd: FormData): Promise<Resultado> {
   const yo = await exigirSesion();
   const t = await traductor();
@@ -52,6 +51,11 @@ export async function apuntarMovimientoSocio(_: Resultado, fd: FormData): Promis
       const de = await socioDe(fd, "de", t);
       const para = await socioDe(fd, "para", t);
       if (de === para) throw new Error(t("Elige dos socios distintos."));
+      await db.insert(movimientosSocios).values({ ...base, deId: de, paraId: para });
+    } else if (tipo === "aportacion") {
+      // Quien pone el dinero y quien lo guarda pueden ser el mismo socio
+      const de = await socioDe(fd, "de", t);
+      const para = await socioDe(fd, "para", t);
       await db.insert(movimientosSocios).values({ ...base, deId: de, paraId: para });
     } else if (tipo === "gasto") {
       if (!motivo) throw new Error(t("Escribe qué se pagó (ej. «Bolsas», «Alquiler de noviembre»)."));
@@ -99,20 +103,43 @@ export async function anularMovimientoSocio(_: Resultado, fd: FormData): Promise
   return { ok: t("Anulado.") };
 }
 
-// Para corregir a quién le llegó el dinero de una venta con Bizum o tarjeta
+// Para corregir quién se quedó el dinero de una venta (efectivo, Bizum o tarjeta)
 export async function cambiarRecibeVenta(_: Resultado, fd: FormData): Promise<Resultado> {
   await exigirSesion();
   const t = await traductor();
   const id = entero(fd, "id");
   if (!id) return { error: t("Venta no válida.") };
   try {
-    const recibe = await socioOComun(texto(fd, "recibe"), t);
+    const recibe = await socioElegido(texto(fd, "recibe"), t);
     const r = await db
       .update(ventas)
       .set({ recibeId: recibe })
-      .where(and(eq(ventas.id, id), eq(ventas.anulada, false), ne(ventas.metodoPago, "efectivo")))
+      .where(and(eq(ventas.id, id), eq(ventas.anulada, false)))
       .returning({ id: ventas.id });
-    if (r.length === 0) throw new Error(t("Solo se puede cambiar en ventas con Bizum o tarjeta que no estén anuladas."));
+    if (r.length === 0) throw new Error(t("La venta no existe o está anulada."));
+  } catch (e) {
+    return { error: mensajeError(e, t) };
+  }
+  refrescar();
+  return { ok: t("Guardado.") };
+}
+
+// Para poner o cambiar el proveedor de una compra (vacío = sin indicar)
+export async function cambiarProveedorCompra(_: Resultado, fd: FormData): Promise<Resultado> {
+  await exigirSesion();
+  const t = await traductor();
+  const id = entero(fd, "id");
+  if (!id) return { error: t("Compra no válida.") };
+  try {
+    const valor = texto(fd, "proveedor");
+    let proveedorId: number | null = null;
+    if (valor) {
+      proveedorId = Number(valor);
+      const [p] = Number.isInteger(proveedorId) ? await db.select({ id: proveedores.id }).from(proveedores).where(eq(proveedores.id, proveedorId)) : [];
+      if (!p) throw new Error(t("Elige un proveedor de la lista."));
+    }
+    const r = await db.update(compras).set({ proveedorId }).where(eq(compras.id, id)).returning({ id: compras.id });
+    if (r.length === 0) throw new Error(t("La compra no existe."));
   } catch (e) {
     return { error: mensajeError(e, t) };
   }
@@ -127,7 +154,7 @@ export async function cambiarPagaCompra(_: Resultado, fd: FormData): Promise<Res
   const id = entero(fd, "id");
   if (!id) return { error: t("Compra no válida.") };
   try {
-    const paga = await socioOComun(texto(fd, "paga"), t);
+    const paga = await socioElegido(texto(fd, "paga"), t);
     const r = await db
       .update(compras)
       .set({ pagaId: paga })

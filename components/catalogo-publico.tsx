@@ -9,8 +9,8 @@ import { useT } from "./preferencias";
 import { nombreModelo, normalizar } from "./buscador";
 import { Foto } from "./foto";
 
-const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-const num = new Intl.NumberFormat("es-ES");
+const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
+const num = new Intl.NumberFormat("es-ES", { useGrouping: "always" });
 
 const NIVEL = {
   disponible: { texto: tx("Disponible"), clase: "bg-emerald-50 text-emerald-800" },

@@ -6,9 +6,14 @@ import { useT } from "./preferencias";
 import { apuntarMovimientoSocio } from "@/lib/actions/socios";
 import { tx } from "@/lib/i18n";
 
-type Tipo = "pago" | "gasto" | "reparto" | "ajuste";
+type Tipo = "aportacion" | "pago" | "gasto" | "reparto" | "ajuste";
 
 const TIPOS: { value: Tipo; label: string; ayuda: string }[] = [
+  {
+    value: "aportacion",
+    label: tx("Aportación al bote"),
+    ayuda: tx("Un socio pone dinero suyo para comprar más stock (ej. 105 € cada uno). Lo puede guardar él mismo o pasárselo al otro."),
+  },
   { value: "pago", label: tx("Pago entre socios"), ayuda: tx("Uno le pasa dinero al otro (por ejemplo, para quedar a la par).") },
   { value: "gasto", label: tx("Gasto"), ayuda: tx("Algo de la tienda que no es stock y que un socio pagó de su bolsillo: bolsas, alquiler, publicidad…") },
   {
@@ -19,14 +24,14 @@ const TIPOS: { value: Tipo; label: string; ayuda: string }[] = [
   {
     value: "ajuste",
     label: tx("Saldo de partida"),
-    ayuda: tx("Lo de antes de usar la app: el stock que alguien pagó de su bolsillo o el dinero de la tienda que alguien tiene."),
+    ayuda: tx("Lo de antes de usar la app: el dinero de la tienda que alguien tiene guardado (ej. lo que queda de las últimas ventas) o el stock que alguien pagó de su bolsillo."),
   },
 ];
 
 // Formulario para apuntar movimientos entre socios: los campos cambian según el tipo
 export function FormMovimientoSocio({ socios, yo }: { socios: { id: number; nombre: string }[]; yo: number }) {
   const t = useT();
-  const [tipo, setTipo] = useState<Tipo>("pago");
+  const [tipo, setTipo] = useState<Tipo>("aportacion");
   const primero = socios.some((s) => s.id === yo) ? yo : socios[0]?.id;
   const otro = socios.find((s) => s.id !== primero)?.id;
   const elegir = (nombre: string, id: string, defecto: number | undefined, etiqueta: string) => (
@@ -63,7 +68,7 @@ export function FormMovimientoSocio({ socios, yo }: { socios: { id: number; nomb
   return (
     <FormAccion accion={apuntarMovimientoSocio} limpiarAlGuardar className="tarjeta space-y-4 p-5">
       <input type="hidden" name="tipo" value={tipo} />
-      <div className="segmento flex-wrap" role="radiogroup" aria-label={t("Qué quieres apuntar")}>
+      <div className="segmento w-fit max-w-full overflow-x-auto [scrollbar-width:none]" role="radiogroup" aria-label={t("Qué quieres apuntar")}>
         {TIPOS.map((x) => (
           <button key={x.value} type="button" role="radio" aria-checked={tipo === x.value} onClick={() => setTipo(x.value)}>
             {t(x.label)}
@@ -73,6 +78,14 @@ export function FormMovimientoSocio({ socios, yo }: { socios: { id: number; nomb
       <p className="text-sm text-zinc-500">{t(TIPOS.find((x) => x.value === tipo)!.ayuda)}</p>
 
       <div key={tipo} className="grid gap-4 sm:grid-cols-2">
+        {tipo === "aportacion" && (
+          <>
+            {elegir("de", "de_socio", primero, t("Lo pone"))}
+            {elegir("para", "para_socio", primero, t("Lo guarda"))}
+            {importe(t("Importe (€)"))}
+            {motivo(false, t("Ej. Para el pedido de diciembre"))}
+          </>
+        )}
         {tipo === "pago" && (
           <>
             {elegir("de", "de_socio", primero, t("Paga"))}
@@ -112,12 +125,12 @@ export function FormMovimientoSocio({ socios, yo }: { socios: { id: number; nomb
                   <input type="radio" name="sentido" value="tiene" className="mt-0.5" />
                   <span>
                     <span className="block font-medium">{t("Tiene dinero de la tienda")}</span>
-                    <span className="text-zinc-500">{t("Cobró ventas o se quedó dinero que es de los dos")}</span>
+                    <span className="text-zinc-500">{t("Tiene guardado dinero de ventas que es de los dos")}</span>
                   </span>
                 </label>
               </div>
             </fieldset>
-            {motivo(true, t("Ej. Stock inicial que pagué yo"))}
+            {motivo(true, t("Ej. Lo que queda de las últimas ventas"))}
           </>
         )}
       </div>

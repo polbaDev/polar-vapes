@@ -7,8 +7,9 @@ import { crearCompra } from "@/lib/actions/stock";
 import { filtrarVariantes, nombreModelo, porCodigo, type VarianteLigera } from "./buscador";
 import { BotonCamara, Escaner, useCamaraDisponible } from "./escaner";
 import { useT } from "./preferencias";
+import { pagosParaCompra, type SaldoSocio } from "@/lib/socios-calculo";
 
-const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
 
 type Linea = { key: number; varianteId: number; cantidad: string; coste: string; lote: string };
 
@@ -23,6 +24,7 @@ export function FormCompra({
   hoy,
   inicial,
   socios = [],
+  saldos = [],
   yo,
 }: {
   variantes: VarianteLigera[];
@@ -30,18 +32,21 @@ export function FormCompra({
   hoy: string;
   // Para abrir la compra ya rellena (desde el pedido sugerido)
   inicial?: { proveedorId: number | null; lineas: { varianteId: number; cantidad: number }[] };
-  // Socios que pueden pagarla de su bolsillo
+  // Socios que pueden pagarla
   socios?: { id: number; nombre: string }[];
+  // Saldo de cada socio, para decir cuánto le pasa uno al otro para pagarla a medias
+  saldos?: SaldoSocio[];
   yo: number;
 }) {
   const router = useRouter();
   const t = useT();
-  // Por defecto la paga quien la registra (si es socio); «comun» = con dinero de la tienda
-  const [paga, setPaga] = useState(socios.some((s) => s.id === yo) ? String(yo) : socios.length ? String(socios[0].id) : "comun");
+  // Por defecto la paga quien la registra (si es socio)
+  const [paga, setPaga] = useState(socios.some((s) => s.id === yo) ? String(yo) : socios.length ? String(socios[0].id) : "");
   const [proveedorId, setProveedorId] = useState(
     inicial?.proveedorId && proveedores.some((p) => p.id === inicial.proveedorId) ? String(inicial.proveedorId) : "",
   );
   const [proveedorNuevo, setProveedorNuevo] = useState("");
+  const [telefonoNuevo, setTelefonoNuevo] = useState("");
   const [fecha, setFecha] = useState(hoy);
   const [factura, setFactura] = useState("");
   const [envio, setEnvio] = useState("");
@@ -71,6 +76,8 @@ export function FormCompra({
   const gastos = Number.isFinite(aNumero(envio)) && envio ? aNumero(envio) : 0;
   const factor = subtotal > 0 ? gastos / subtotal : 0;
   const unidades = lineas.reduce((s, l) => s + (Number.isInteger(aNumero(l.cantidad)) ? aNumero(l.cantidad) : 0), 0);
+  // Lo que le pasa uno al otro para pagar esta compra a medias (cuenta lo que ya tiene cada uno del bote)
+  const pagosAMedias = saldos.length >= 2 && paga ? pagosParaCompra(saldos, Number(paga), Math.round((subtotal + gastos) * 100) / 100) : [];
 
   function anadir(v: VarianteLigera) {
     setLineas((ls) => [
@@ -122,12 +129,13 @@ export function FormCompra({
       const r = await crearCompra({
         proveedorId: proveedorId ? Number(proveedorId) : null,
         proveedorNuevo: proveedorNuevo || null,
+        proveedorTelefono: telefonoNuevo || null,
         fecha,
         numFactura: factura || null,
         gastosEnvio: gastos,
         notas: notas || null,
         lineas: datos,
-        pagaId: paga === "comun" ? null : Number(paga),
+        pagaId: paga ? Number(paga) : null,
       });
       if (r?.error) return setError(r.error);
       router.push(`/compras/${r!.id}?nueva=1`);
@@ -154,7 +162,27 @@ export function FormCompra({
           <label className="etiqueta" htmlFor="proveedor_nuevo">
             {t("…o proveedor nuevo")}
           </label>
-          <input id="proveedor_nuevo" className="campo" value={proveedorNuevo} onChange={(e) => setProveedorNuevo(e.target.value)} />
+          <input
+            id="proveedor_nuevo"
+            className="campo"
+            value={proveedorNuevo}
+            onChange={(e) => setProveedorNuevo(e.target.value)}
+            placeholder={t("Nombre")}
+          />
+          {proveedorNuevo.trim() && (
+            <input
+              aria-label={t("Teléfono del proveedor")}
+              className="campo mt-2"
+              value={telefonoNuevo}
+              onChange={(e) => setTelefonoNuevo(e.target.value)}
+              placeholder={t("Teléfono (opcional)")}
+              inputMode="tel"
+              autoComplete="off"
+            />
+          )}
+          <Link href="/catalogo/proveedores" target="_blank" className="mt-1 inline-block text-xs enlace">
+            {t("Ver y editar proveedores")}
+          </Link>
         </div>
         <div>
           <label className="etiqueta" htmlFor="fecha">
@@ -307,12 +335,23 @@ export function FormCompra({
                 <select id="paga" value={paga} onChange={(e) => setPaga(e.target.value)} className="campo sm:w-72">
                   {socios.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {t("{nombre}, de su bolsillo", { nombre: s.nombre })}
+                      {s.nombre}
                     </option>
                   ))}
-                  <option value="comun">{t("Dinero de la tienda (caja o cuenta común)")}</option>
                 </select>
-                <p className="mt-1 text-xs text-zinc-500">{t("Cuenta en las cuentas entre socios.")}</p>
+                {pagosAMedias.length > 0 ? (
+                  <p className="mt-1 text-sm text-marca-900">
+                    {t("Para pagarla a medias:")}{" "}
+                    {pagosAMedias.map((p, i) => (
+                      <span key={i}>
+                        <strong>{p.de}</strong> {t("le pasa")} <strong className="tabular-nums">{eur.format(p.importe)}</strong> {t("a")}{" "}
+                        <strong>{p.para}</strong>.{" "}
+                      </span>
+                    ))}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-zinc-500">{t("Sale del bote que tiene (o de su bolsillo, si no le llega).")}</p>
+                )}
               </div>
             )}
           </div>

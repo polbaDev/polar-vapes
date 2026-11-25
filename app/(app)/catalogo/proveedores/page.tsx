@@ -9,7 +9,7 @@ async function Campos({ p }: { p?: { nombre: string; telefono: string | null; em
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <input name="nombre" required defaultValue={p?.nombre} placeholder={t("Nombre")} className="campo" aria-label={t("Nombre")} />
-      <input name="telefono" defaultValue={p?.telefono ?? ""} placeholder={t("Teléfono")} className="campo" aria-label={t("Teléfono")} />
+      <input name="telefono" type="tel" inputMode="tel" defaultValue={p?.telefono ?? ""} placeholder={t("Teléfono")} className="campo" aria-label={t("Teléfono")} />
       <input name="email" type="email" defaultValue={p?.email ?? ""} placeholder={t("Email")} className="campo" aria-label={t("Email")} />
       <input name="notas" defaultValue={p?.notas ?? ""} placeholder={t("Notas")} className="campo" aria-label={t("Notas")} />
     </div>

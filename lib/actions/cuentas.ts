@@ -7,7 +7,6 @@ import { usuarios } from "@/lib/db/schema";
 import { versionSesion } from "@/lib/ajustes";
 import { claveCorrecta, huellaClave, MIN_CLAVE } from "@/lib/claves";
 import { abrirSesion, exigirSesion } from "@/lib/session";
-import { esSocioActivo, guardarTarjetaRecibe } from "@/lib/socios";
 import { traductor } from "@/lib/i18n/servidor";
 import type { T } from "@/lib/i18n";
 import { type Resultado, texto, entero, mensajeError } from "./tipos";
@@ -131,20 +130,4 @@ export async function activarCuenta(_: Resultado, fd: FormData): Promise<Resulta
   }
   refrescar();
   return { ok: activo ? t("Cuenta activada.") : t("Cuenta desactivada. Ya no puede entrar.") };
-}
-
-// A quién le llega lo cobrado con tarjeta (el datáfono ingresa en la cuenta de un socio o en la de la tienda)
-export async function guardarDestinoTarjeta(_: Resultado, fd: FormData): Promise<Resultado> {
-  await exigirSesion();
-  const t = await traductor();
-  const valor = texto(fd, "tarjeta");
-  try {
-    const id = valor === "comun" || valor === "" ? null : Number(valor);
-    if (id !== null && (!Number.isInteger(id) || !(await esSocioActivo(id)))) throw new Error(t("Elige un socio de la lista."));
-    await guardarTarjetaRecibe(id);
-  } catch (e) {
-    return { error: mensajeError(e, t) };
-  }
-  refrescar();
-  return { ok: t("Guardado. Se aplica a las ventas con tarjeta a partir de ahora.") };
 }

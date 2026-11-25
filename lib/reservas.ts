@@ -218,7 +218,7 @@ export function tiempoRestante(hasta: Date | string, t: T = tEs, ahora = new Dat
 
 // Mensaje para WhatsApp que el cliente te envía (en el idioma en que ve el catálogo)
 export function mensajeWhatsApp(r: { codigo: string; nombre: string; lineas: LineaReservaFila[] }, t: T = tEs) {
-  const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+  const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
   const total = r.lineas.reduce((s, l) => s + l.cantidad * Number(l.precioUnidad), 0);
   const lineas = r.lineas.map((l) => `- ${l.cantidad} × ${l.sabor} (${nombreModelo(l)} · ${l.nicotinaMg} mg)`);
   return [

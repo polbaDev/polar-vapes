@@ -5,6 +5,7 @@ import { listarProveedores } from "@/lib/queries";
 import { hoyISO } from "@/lib/format";
 import { exigirSesion } from "@/lib/session";
 import { listarSocios } from "@/lib/usuarios";
+import { saldosSocios } from "@/lib/socios";
 import { traductor } from "@/lib/i18n/servidor";
 
 export async function generateMetadata() {
@@ -24,13 +25,14 @@ function leerInicial(sp: { proveedor?: string; lineas?: string }) {
 }
 
 export default async function NuevaCompra({ searchParams }: { searchParams: Promise<{ proveedor?: string; lineas?: string }> }) {
-  const [variantes, proveedores, sp, t, yo, socios] = await Promise.all([
+  const [variantes, proveedores, sp, t, yo, socios, saldos] = await Promise.all([
     variantesLigeras(),
     listarProveedores(),
     searchParams,
     traductor(),
     exigirSesion(),
     listarSocios(),
+    saldosSocios(),
   ]);
   const inicial = leerInicial(sp);
   return (
@@ -50,6 +52,7 @@ export default async function NuevaCompra({ searchParams }: { searchParams: Prom
         hoy={hoyISO()}
         inicial={inicial}
         socios={socios}
+        saldos={saldos.filter((s) => s.socio).map((s) => ({ id: s.id, nombre: s.nombre, saldo: s.saldo }))}
         yo={yo.id}
       />
     </>

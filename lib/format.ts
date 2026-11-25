@@ -1,7 +1,7 @@
 import { tEs, type T } from "@/lib/i18n";
 
-const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-const num = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2 });
+const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", useGrouping: "always" });
+const num = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2, useGrouping: "always" });
 
 export function euros(v: number | string | null | undefined) {
   return eur.format(Number(v ?? 0));
