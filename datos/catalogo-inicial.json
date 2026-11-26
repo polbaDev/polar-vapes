@@ -17,6 +17,7 @@
         "Nicotina 2 % (20 mg/ml)"
       ],
       "imagen": {
+        "url": "https://www.razzbar.com/wp-content/uploads/2025/12/RAZZ-BAR-60K-scaled.jpg",
         "archivo": "imagenes/razz-bar-60k-cartel.webp"
       },
       "nicotinaMg": 20,
@@ -27,147 +28,147 @@
           "nombre": "Strawberry Banana",
           "categoria": "fruta",
           "descripcion": "Fresa y plátano",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/94.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Banana.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-banana.webp"
         },
         {
           "nombre": "Juicy Peach Ice",
           "categoria": "fruta",
           "descripcion": "Melocotón jugoso con toque helado",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/92.png",
+          "url": "https://cdn.razzbarvape.es/2026/07/Razz-Bar-60000-Juicy-Peach-Ice.jpg",
           "archivo": "imagenes/razz-bar-60k/juicy-peach-ice.webp"
         },
         {
           "nombre": "Coco Loco",
           "categoria": "fruta",
           "descripcion": "Coco tropical",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/90.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Coco-Loco.jpg",
           "archivo": "imagenes/razz-bar-60k/coco-loco.webp"
         },
         {
           "nombre": "Blueberry Sour Raspberry",
           "categoria": "fruta",
           "descripcion": "Arándano y frambuesa ácida",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/96.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Blueberry-Sour-Raspberry.jpg",
           "archivo": "imagenes/razz-bar-60k/blueberry-sour-raspberry.webp"
         },
         {
           "nombre": "Cotton Candy",
           "categoria": "postre",
           "descripcion": "Algodón de azúcar",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/98.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Cotton-Candy.jpg",
           "archivo": "imagenes/razz-bar-60k/cotton-candy.webp"
         },
         {
           "nombre": "Gummy Bear",
           "categoria": "postre",
           "descripcion": "Ositos de gominola",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/100.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Gummy-Bear.jpg",
           "archivo": "imagenes/razz-bar-60k/gummy-bear.webp"
         },
         {
           "nombre": "Blueberry Watermelon",
           "categoria": "fruta",
           "descripcion": "Arándano y sandía",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/102.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Blueberry-Watermelon.jpg",
           "archivo": "imagenes/razz-bar-60k/blueberry-watermelon.webp"
         },
         {
           "nombre": "Lemon Peach Passion Fruit",
           "categoria": "fruta",
           "descripcion": "Limón, melocotón y maracuyá",
-          "url": "https://fumup.fr/wp-content/uploads/2026/08/118.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Lemon-Peach-Passion-Fruit.jpg",
           "archivo": "imagenes/razz-bar-60k/lemon-peach-passion-fruit.webp"
         },
         {
           "nombre": "Black Ice Dragon Fruit Strawberry",
           "categoria": "fruta",
           "descripcion": "Pitahaya y fresa con hielo",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/106.png",
+          "url": "https://cdn.razzbarvape.es/2026/07/Razz-Bar-60000-Black-Ice-Dragon-Fruit-Strawberry.jpg",
           "archivo": "imagenes/razz-bar-60k/black-ice-dragon-fruit-strawberry.webp"
         },
         {
           "nombre": "Mixed Berries",
           "categoria": "fruta",
           "descripcion": "Frutos del bosque",
-          "url": "https://fumup.fr/wp-content/uploads/2026/08/110.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Mixed-Berries.jpg",
           "archivo": "imagenes/razz-bar-60k/mixed-berries.webp"
         },
         {
           "nombre": "Love 66",
           "categoria": "fruta",
           "descripcion": "Sandía, melón y maracuyá",
-          "url": "https://fumup.fr/wp-content/uploads/2026/07/104.png",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Love-66.jpg",
           "archivo": "imagenes/razz-bar-60k/love-66.webp"
         },
         {
           "nombre": "Strawberry Kiwi",
           "categoria": "fruta",
           "descripcion": "Fresa y kiwi",
-          "url": "https://fumup.fr/wp-content/uploads/2026/08/114.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Kiwi.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-kiwi.webp"
         },
         {
           "nombre": "Tropical Fruit",
           "categoria": "fruta",
           "descripcion": "Mango y piña",
-          "url": "https://fumup.fr/wp-content/uploads/2026/10/razz-bar-60k-tropical-fruit.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Tropical-Fruit.jpg",
           "archivo": "imagenes/razz-bar-60k/tropical-fruit.webp"
         },
         {
           "nombre": "Strawberry Vanilla Coke",
           "categoria": "bebida",
           "descripcion": "Refresco de cola con fresa y vainilla",
-          "url": "https://fumup.fr/wp-content/uploads/2026/08/112.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Vanilla-Coke.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-vanilla-coke.webp"
         },
         {
           "nombre": "Lemon Lime",
           "categoria": "fruta",
           "descripcion": "Limón y lima",
-          "url": "https://fumup.fr/wp-content/uploads/2026/08/FLUB-7.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Lemon-Lime.jpg",
           "archivo": "imagenes/razz-bar-60k/lemon-lime.webp"
         },
         {
           "nombre": "Summer Dream",
           "categoria": "fruta",
           "descripcion": "Mezcla de frutas de verano",
-          "url": "https://fumup.fr/wp-content/uploads/2026/08/108.webp",
+          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Summer-Dream.jpg",
           "archivo": "imagenes/razz-bar-60k/summer-dream.webp"
         },
         {
           "nombre": "Cola Ice",
           "categoria": "bebida",
           "descripcion": "Refresco de cola con toque helado",
-          "url": "https://fumup.fr/wp-content/uploads/2026/11/razz-bar-60k-cola-ice-unite.webp",
+          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-cola-ice.jpg",
           "archivo": "imagenes/razz-bar-60k/cola-ice.webp"
         },
         {
           "nombre": "Strawberry Ice",
           "categoria": "fruta",
           "descripcion": "Fresa con toque helado",
-          "url": "https://fumup.fr/wp-content/uploads/2026/11/razz-bar-60k-strawberry-ice-unite.webp",
+          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-strawberry-ice.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-ice.webp"
         },
         {
           "nombre": "Energy Drink",
           "categoria": "bebida",
           "descripcion": "Bebida energética",
-          "url": "https://fumup.fr/wp-content/uploads/2026/11/razz-bar-60k-energy-drink-unite.webp",
+          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-energy-drink.jpg",
           "archivo": "imagenes/razz-bar-60k/energy-drink.webp"
         },
         {
           "nombre": "Strawberry Raspberry Cherry Ice",
           "categoria": "fruta",
           "descripcion": "Fresa, frambuesa y cereza con hielo",
-          "url": "https://fumup.fr/wp-content/uploads/2026/11/razz-bar-60k-strawberry-raspberry-cherry-ice-unite.webp",
+          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-strawberry-raspberry-cherry-ice.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-raspberry-cherry-ice.webp"
         },
         {
           "nombre": "Cheese Cake",
           "categoria": "postre",
           "descripcion": "Tarta de queso",
-          "url": "https://fumup.fr/wp-content/uploads/2026/11/razz-bar-60k-cheese-cake-unite.webp",
+          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-cheesecake.jpg",
           "archivo": "imagenes/razz-bar-60k/cheese-cake.webp"
         },
         {
@@ -202,7 +203,7 @@
           "nombre": "Rainbow Burst",
           "categoria": "postre",
           "descripcion": "Caramelos de frutas variados",
-          "url": "https://fumup.fr/wp-content/uploads/2026/11/razz-bar-60k-rainbow-burst-unite.webp",
+          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-rainbow-burst.jpg",
           "archivo": "imagenes/razz-bar-60k/rainbow-burst.webp"
         }
       ]

@@ -84,7 +84,7 @@ Te pide que escribas `SI` para seguir. Antes guarda los datos actuales en `copia
 
 La **primera vez** que arranca, con la base de datos vacía, la app carga la **Razz Bar 60K con sus 26 sabores** (20 mg, aviso de stock en 3 unidades y **sin precio**). Los datos están en `datos/catalogo-inicial.json`.
 
-- Las fotos de cada sabor se descargan de internet en ese momento (1000×1000). Si no hay conexión, usa copias más ligeras de las mismas fotos, que están en `datos/imagenes/` y en la ficha del producto aparece el botón **«Descargar imágenes en alta»** para volver a intentarlo.
+- Las fotos de cada sabor se descargan de internet en ese momento (800×800). Si no hay conexión, usa copias más ligeras de las mismas fotos, que están en `datos/imagenes/` y en la ficha del producto aparece el botón **«Descargar imágenes en alta»** para volver a intentarlo.
 - Lo primero que tienes que hacer: entra en Catálogo → Razz Bar 60K y pon el precio con **«Aplicar a todos los sabores»**. Mientras un sabor no tenga precio, no se puede vender.
 - Si subes tu propia foto de un sabor, la app no la sustituye por la de internet.
 
