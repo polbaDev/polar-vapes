@@ -14,13 +14,13 @@
         "Batería 650 mAh recargable",
         "Carga USB tipo C",
         "Resistencia de malla 1,0 Ω",
-        "Nicotina 2 % (20 mg/ml)"
+        "Nicotina 5 % (50 mg/ml)"
       ],
       "imagen": {
         "url": "https://www.razzbar.com/wp-content/uploads/2025/12/RAZZ-BAR-60K-scaled.jpg",
         "archivo": "imagenes/razz-bar-60k-cartel.webp"
       },
-      "nicotinaMg": 20,
+      "nicotinaMg": 50,
       "precio": 0,
       "stockMinimo": 3,
       "sabores": [
