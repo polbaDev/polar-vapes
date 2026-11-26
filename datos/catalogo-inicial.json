@@ -1,5 +1,5 @@
 {
-  "_nota": "Catálogo que se carga la PRIMERA vez que arranca la app (si no hay productos). Las imágenes se descargan de 'url'; si falla, se usa 'archivo' (copia local de la misma foto).",
+  "_nota": "Catálogo que se carga la PRIMERA vez que arranca la app (si no hay productos). Las imágenes con 'url' se descargan de ahí y, si falla, se usa 'archivo'; las que solo tienen 'archivo' se cargan directamente de datos/imagenes.",
   "productos": [
     {
       "marca": "Razz Bar",
@@ -28,147 +28,126 @@
           "nombre": "Strawberry Banana",
           "categoria": "fruta",
           "descripcion": "Fresa y plátano",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Banana.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-banana.webp"
         },
         {
           "nombre": "Juicy Peach Ice",
           "categoria": "fruta",
           "descripcion": "Melocotón jugoso con toque helado",
-          "url": "https://cdn.razzbarvape.es/2026/07/Razz-Bar-60000-Juicy-Peach-Ice.jpg",
           "archivo": "imagenes/razz-bar-60k/juicy-peach-ice.webp"
         },
         {
           "nombre": "Coco Loco",
           "categoria": "fruta",
           "descripcion": "Coco tropical",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Coco-Loco.jpg",
           "archivo": "imagenes/razz-bar-60k/coco-loco.webp"
         },
         {
           "nombre": "Blueberry Sour Raspberry",
           "categoria": "fruta",
           "descripcion": "Arándano y frambuesa ácida",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Blueberry-Sour-Raspberry.jpg",
           "archivo": "imagenes/razz-bar-60k/blueberry-sour-raspberry.webp"
         },
         {
           "nombre": "Cotton Candy",
           "categoria": "postre",
           "descripcion": "Algodón de azúcar",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Cotton-Candy.jpg",
           "archivo": "imagenes/razz-bar-60k/cotton-candy.webp"
         },
         {
           "nombre": "Gummy Bear",
           "categoria": "postre",
           "descripcion": "Ositos de gominola",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Gummy-Bear.jpg",
           "archivo": "imagenes/razz-bar-60k/gummy-bear.webp"
         },
         {
           "nombre": "Blueberry Watermelon",
           "categoria": "fruta",
           "descripcion": "Arándano y sandía",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Blueberry-Watermelon.jpg",
           "archivo": "imagenes/razz-bar-60k/blueberry-watermelon.webp"
         },
         {
           "nombre": "Lemon Peach Passion Fruit",
           "categoria": "fruta",
           "descripcion": "Limón, melocotón y maracuyá",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Lemon-Peach-Passion-Fruit.jpg",
           "archivo": "imagenes/razz-bar-60k/lemon-peach-passion-fruit.webp"
         },
         {
           "nombre": "Black Ice Dragon Fruit Strawberry",
           "categoria": "fruta",
           "descripcion": "Pitahaya y fresa con hielo",
-          "url": "https://cdn.razzbarvape.es/2026/07/Razz-Bar-60000-Black-Ice-Dragon-Fruit-Strawberry.jpg",
           "archivo": "imagenes/razz-bar-60k/black-ice-dragon-fruit-strawberry.webp"
         },
         {
           "nombre": "Mixed Berries",
           "categoria": "fruta",
           "descripcion": "Frutos del bosque",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Mixed-Berries.jpg",
           "archivo": "imagenes/razz-bar-60k/mixed-berries.webp"
         },
         {
           "nombre": "Love 66",
           "categoria": "fruta",
           "descripcion": "Sandía, melón y maracuyá",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Love-66.jpg",
           "archivo": "imagenes/razz-bar-60k/love-66.webp"
         },
         {
           "nombre": "Strawberry Kiwi",
           "categoria": "fruta",
           "descripcion": "Fresa y kiwi",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Kiwi.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-kiwi.webp"
         },
         {
           "nombre": "Tropical Fruit",
           "categoria": "fruta",
           "descripcion": "Mango y piña",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Tropical-Fruit.jpg",
           "archivo": "imagenes/razz-bar-60k/tropical-fruit.webp"
         },
         {
           "nombre": "Strawberry Vanilla Coke",
           "categoria": "bebida",
           "descripcion": "Refresco de cola con fresa y vainilla",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Strawberry-Vanilla-Coke.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-vanilla-coke.webp"
         },
         {
           "nombre": "Lemon Lime",
           "categoria": "fruta",
           "descripcion": "Limón y lima",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Lemon-Lime.jpg",
           "archivo": "imagenes/razz-bar-60k/lemon-lime.webp"
         },
         {
           "nombre": "Summer Dream",
           "categoria": "fruta",
           "descripcion": "Mezcla de frutas de verano",
-          "url": "https://cdn.razzbarvape.es/2026/05/Razz-Bar-60000-Summer-Dream.jpg",
           "archivo": "imagenes/razz-bar-60k/summer-dream.webp"
         },
         {
           "nombre": "Cola Ice",
           "categoria": "bebida",
           "descripcion": "Refresco de cola con toque helado",
-          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-cola-ice.jpg",
           "archivo": "imagenes/razz-bar-60k/cola-ice.webp"
         },
         {
           "nombre": "Strawberry Ice",
           "categoria": "fruta",
           "descripcion": "Fresa con toque helado",
-          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-strawberry-ice.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-ice.webp"
         },
         {
           "nombre": "Energy Drink",
           "categoria": "bebida",
           "descripcion": "Bebida energética",
-          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-energy-drink.jpg",
           "archivo": "imagenes/razz-bar-60k/energy-drink.webp"
         },
         {
           "nombre": "Strawberry Raspberry Cherry Ice",
           "categoria": "fruta",
           "descripcion": "Fresa, frambuesa y cereza con hielo",
-          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-strawberry-raspberry-cherry-ice.jpg",
           "archivo": "imagenes/razz-bar-60k/strawberry-raspberry-cherry-ice.webp"
         },
         {
           "nombre": "Cheese Cake",
           "categoria": "postre",
           "descripcion": "Tarta de queso",
-          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-cheesecake.jpg",
           "archivo": "imagenes/razz-bar-60k/cheese-cake.webp"
         },
         {
@@ -199,7 +178,6 @@
           "nombre": "Rainbow Burst",
           "categoria": "postre",
           "descripcion": "Caramelos de frutas variados",
-          "url": "https://cdn.shopify.com/s/files/1/0777/1160/6107/files/puff-60k-razzbar-jetable-disposable-rainbow-burst.jpg",
           "archivo": "imagenes/razz-bar-60k/rainbow-burst.webp"
         }
       ]
